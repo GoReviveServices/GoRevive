@@ -56,7 +56,7 @@ export async function POST(request) {
                     ram: item.memory_ram || "",
                     storage: item.internal_storage || "",
                     display: item.display_size || "",
-                    os: item.operating_system || "",
+                    os: (item.product_category || "").toLowerCase() === "monitor" ? "" : item.operating_system || "",
                     color: item.color || "",
                     gpu: item.gpu || "",
                     battery: item.battary || ""
