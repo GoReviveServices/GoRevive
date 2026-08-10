@@ -14,8 +14,8 @@ export async function POST(request) {
                 orderId,
                 amount,
                 customerId,
-                phone: customerPhone || "9999999999",
-                email: customerEmail || "b2b@example.com",
+                phone: customerPhone,
+                email: customerEmail,
                 returnUrl: `${baseUrl}/checkout/status?order_id=${orderId}&gateway=CASHFREE`,
                 payment_methods_filters
             });

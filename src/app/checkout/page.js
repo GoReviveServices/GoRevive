@@ -328,14 +328,14 @@ export default function CheckoutPage() {
                 payment_mode: gateway,
                 cod_charges: "",
                 payment_remark: "B2B Website Order",
-                crm_party_code: user?.crm_party_code || "",
-                party_name: user?.cust_name || "User",
-                party_mobile: user?.mobile || "",
-                party_email: user?.email || "",
-                shipping_address: selectedAddress?.address1 || selectedAddress?.plot_no || "",
-                shipping_city: selectedAddress?.city || "",
-                shipping_state: selectedAddress?.state || "",
-                shipping_zip: selectedAddress?.pincode || ""
+                crm_party_code: user?.crm_party_code ,
+                party_name: user?.cust_name ,
+                party_mobile: user?.mobile ,
+                party_email: user?.email ,
+                shipping_address: selectedAddress?.address1 || selectedAddress?.plot_no ,
+                shipping_city: selectedAddress?.city ,
+                shipping_state: selectedAddress?.state ,
+                shipping_zip: selectedAddress?.pincode 
             };
 
             const poResponse = await api.post('/order/po', poPayload);
