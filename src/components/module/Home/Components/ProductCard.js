@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '@/components/utils/Context/AuthContext';
 import Link from 'next/link';
-import api from '@/lib/apiClient';
 
 // Grade -> color. Single source of truth so every place a grade appears
 // (image badge, text list) stays consistent.
@@ -16,27 +15,6 @@ const GRADE_COLORS = {
 
 export const ProductCard = ({ product }) => {
     const { isAuthenticated } = useAuth();
-
-    const [hasOriginalImages, setHasOriginalImages] = useState(false);
-
-    useEffect(() => {
-        if (product?.imei) {
-            const checkQcImages = async () => {
-                try {
-                    const response = await api.get(`/qc?imei=${product.imei}`);
-                    if (response.data?.success) {
-                        const rawData = response.data.data;
-                        const imageRow = rawData.find(item => 'image1' in item);
-                        if (imageRow && imageRow.image1 && imageRow.image1.trim() !== "") {
-                            setHasOriginalImages(true);
-                        }
-                    }
-                } catch (error) {
-                }
-            };
-            checkQcImages();
-        }
-    }, [product?.imei]);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
@@ -59,19 +37,6 @@ export const ProductCard = ({ product }) => {
                 href={`/products/${product.id}`}
                 className="relative w-[38%] md:w-full aspect-square md:aspect-[4/3] bg-[#FAFAF9] flex-shrink-0 flex items-center justify-center p-5 md:p-6 border-r md:border-r-0 md:border-b border-gray-100 overflow-hidden"
             >
-                {/* Only claim shown on the image itself: is this the actual unit or not.
-                    Grade moved to text below, where it can carry a label and stay legible. */}
-                {/* {hasOriginalImages && (
-                    <div
-                        className="absolute top-2.5 right-2.5 md:top-3 md:right-3 z-10 flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-full bg-[#0B2136] shadow-[0_1px_4px_rgba(0,0,0,0.12)]"
-                        title="Photos of the actual unit"
-                    >
-                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                        </svg>
-                    </div>
-                )} */}
-
                 <img
                     src={product.image}
                     alt={product.model}
@@ -121,11 +86,6 @@ export const ProductCard = ({ product }) => {
                         </div>
                     </div>
                 )}
-
-                {/* Photo assurance as a plain sentence, not a small icon someone has to decode */}
-                <p className={`text-[10.5px] mb-1 ${hasOriginalImages ? 'text-[#1B5E3B] font-medium' : 'text-gray-400'}`}>
-                    {hasOriginalImages ? 'Photos of the exact unit you\u2019ll receive' : 'Reference image, not the actual unit'}
-                </p>
 
                 <div className="flex-grow" />
 

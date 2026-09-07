@@ -27,9 +27,9 @@ export async function GET(request) {
             const mappedCartItems = apiPayload.data.cartdata.map(item => ({
                 product: {
                     id: item.productId,
-                    name: item.productName || item.model_code || "Unknown Product",
-                    category: item.item_category || "Unknown",
-                    brand: item.brand || "Unknown",
+                    name: item.productName || item.model_code,
+                    category: item.item_category ,
+                    brand: item.brand,
                     price: Number(item.price || item.purchase_price) || 0,
                     mrp: Number(item.purchase_price) || 0,
                     stock: item.stock_qty ? Number(item.stock_qty) : 1,
