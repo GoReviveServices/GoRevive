@@ -7,8 +7,8 @@ export default function ImageGallery({ mainImage, setMainImage, galleryImages, a
     const displayImage = mainImage || galleryImages?.[0];
 
     return (
-        <div className="lg:sticky lg:top-24 flex flex-col gap-4 w-full max-w-2xl">
-            <div className="relative rounded-lg shadow-2xl shadow-white bg-white aspect-square overflow-hidden">
+        <div className="flex flex-col gap-3 w-full">
+            <div className="relative w-full aspect-square lg:max-h-[calc(100vh-15rem)] rounded-[16px] border border-gray-100 bg-white overflow-hidden">
                 {/* Main product photo is the page's largest element: load it first (LCP). */}
                 <SmartImage
                     src={displayImage}
@@ -34,7 +34,7 @@ export default function ImageGallery({ mainImage, setMainImage, galleryImages, a
                                 aria-pressed={isSelected}
                                 aria-label={`Show image ${idx + 1} of ${altText}`}
                                 onClick={() => setMainImage(img)}
-                                className={`relative flex-shrink-0 shadow snap-start w-20 h-20 bg-white rounded-md border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5E3B] ${
+                                className={`relative flex-shrink-0 shadow snap-start w-20 h-20 bg-white rounded-[6px] border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B5E3B] ${
                                     isSelected
                                         ? 'border-[#0B2136]'
                                         : 'border-gray-200 opacity-70 hover:opacity-100 hover:border-gray-400'

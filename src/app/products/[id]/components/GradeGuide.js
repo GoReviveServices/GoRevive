@@ -7,7 +7,7 @@ export default function GradeGuide({ available = [] }) {
         <section aria-labelledby="grades-heading" className="mt-12">
             <div className="mb-5 flex items-end justify-between gap-4">
                 <h2 id="grades-heading" className="text-2xl font-extrabold tracking-tight text-[#0B2136]">Condition Grades Explained</h2>
-                <Link href="/grading" className="whitespace-nowrap text-sm font-semibold text-[#1B5E3B] hover:underline">Full grading guide</Link>
+                <Link href="/grading" className="inline-block whitespace-nowrap py-1.5 text-sm font-semibold text-[#1B5E3B] hover:underline">Full grading guide</Link>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {Object.entries(GRADE_INFO).map(([id, info]) => {

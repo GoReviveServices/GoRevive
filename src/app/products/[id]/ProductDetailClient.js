@@ -135,13 +135,13 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
             <div className="container mx-auto px-4 max-w-[1240px] py-6 lg:py-10">
                 <nav aria-label="Breadcrumb" className="mb-5 text-sm text-gray-500">
                     <ol className="flex flex-wrap items-center gap-1.5">
-                        <li><Link href="/" className="hover:text-[#1B5E3B]">Home</Link></li>
+                        <li><Link href="/" className="inline-block py-1.5 hover:text-[#1B5E3B]">Home</Link></li>
                         <li aria-hidden="true">/</li>
-                        <li><Link href="/products" className="hover:text-[#1B5E3B]">Pre-Owned IT Products</Link></li>
+                        <li><Link href="/products" className="inline-block py-1.5 hover:text-[#1B5E3B]">Pre-Owned IT Products</Link></li>
                         {baseProduct.category && (
                             <>
                                 <li aria-hidden="true">/</li>
-                                <li><Link href={`/products?category=${encodeURIComponent(baseProduct.category)}`} className="hover:text-[#1B5E3B]">{baseProduct.category}</Link></li>
+                                <li><Link href={`/products?category=${encodeURIComponent(baseProduct.category)}`} className="inline-block py-1.5 hover:text-[#1B5E3B]">{baseProduct.category}</Link></li>
                             </>
                         )}
                         <li aria-hidden="true">/</li>
@@ -152,21 +152,13 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                 <div className="flex flex-col lg:flex-row gap-8 xl:gap-12">
                     {/* LEFT: gallery */}
                     <div className="lg:w-[46%]">
-                        <div className="lg:sticky lg:top-24 space-y-3">
+                        <div className="lg:sticky lg:top-24">
                             <ImageGallery
                                 mainImage={mainImage}
                                 setMainImage={setMainImage}
                                 galleryImages={galleryImages}
                                 altText={`Pre-Owned ${title}`}
                             />
-                            <ul className="grid grid-cols-2 gap-2" aria-label="Why buy from GoRevive">
-                                {HIGHLIGHTS.map(h => (
-                                    <li key={h.label} className="flex items-center gap-2 rounded-xl bg-white border border-gray-100 px-3 py-2.5 text-xs font-semibold text-[#0B2136]">
-                                        <svg aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[#1B5E3B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={h.icon} /></svg>
-                                        {h.label}
-                                    </li>
-                                ))}
-                            </ul>
                         </div>
                     </div>
 
@@ -183,6 +175,15 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                             </p>
                         </div>
 
+                        <ul className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2" aria-label="Why buy from GoRevive">
+                            {HIGHLIGHTS.map(h => (
+                                <li key={h.label} className="flex items-center gap-2 rounded-[10px] bg-white border border-gray-100 px-3 py-2 text-[12px] leading-tight font-semibold text-[#0B2136]">
+                                    <svg aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[#1B5E3B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={h.icon} /></svg>
+                                    <span>{h.label}</span>
+                                </li>
+                            ))}
+                        </ul>
+
                         {/* Price */}
                         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                             {isAuthenticated ? (
@@ -190,7 +191,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                                         <span className="text-3xl font-black text-[#0B2136] tracking-tight">{formatCurrency(price)}</span>
                                         {hasDiscount && <span className="text-base font-semibold text-gray-400 line-through">{formatCurrency(mrp)}</span>}
-                                        {hasDiscount && <span className="rounded-md bg-[#F0FAF5] px-2 py-0.5 text-sm font-bold text-[#1B5E3B]">{discountPct}% off</span>}
+                                        {hasDiscount && <span className="rounded-[6px] bg-[#F0FAF5] px-2 py-0.5 text-sm font-bold text-[#1B5E3B]">{discountPct}% off</span>}
                                     </div>
                                     <p className="mt-1 text-xs text-gray-500">B2B price per unit for the selected condition · + GST · shipping calculated at checkout</p>
                                 </>
@@ -200,7 +201,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                                         <p className="text-lg font-bold text-[#0B2136]">Login to see B2B price</p>
                                         {hasDiscount && <p className="text-sm text-[#1B5E3B] font-semibold">Up to {discountPct}% below MRP</p>}
                                     </div>
-                                    <Link href={`/login?next=${encodeURIComponent(`/products/${baseProduct.slug}`)}`} className="rounded-xl bg-[#0B2136] px-6 py-3 text-sm font-bold text-white hover:bg-[#1B5E3B]">
+                                    <Link href={`/login?next=${encodeURIComponent(`/products/${baseProduct.slug}`)}`} className="rounded-[12px] bg-[#0B2136] px-6 py-3 text-sm font-bold text-white hover:bg-[#1B5E3B]">
                                         Login
                                     </Link>
                                 </div>
@@ -231,19 +232,20 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                             quantity={qty}
                             selected={withWarranty}
                             onToggle={() => setWithWarranty(v => !v)}
-                            showPrice={isAuthenticated}
+                            isAuthenticated={isAuthenticated}
+                            loginHref={`/login?next=${encodeURIComponent(`/products/${baseProduct.slug}`)}`}
                         />
 
                         {/* Quantity + actions */}
                         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-sm font-bold text-[#0B2136]">Quantity</span>
-                                <span className={`text-xs font-bold px-3 py-1 rounded-md ${availableMatchingUnits.length > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                <span className={`text-xs font-bold px-3 py-1 rounded-[6px] ${availableMatchingUnits.length > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
                                     {availableMatchingUnits.length > 0 ? `${availableMatchingUnits.length} available in this configuration` : 'Out of stock in this configuration'}
                                 </span>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3">
-                                <div className="flex flex-shrink-0 items-center border border-gray-300 rounded-xl h-12 sm:w-36 overflow-hidden">
+                                <div className="flex flex-shrink-0 items-center border border-gray-300 rounded-[12px] h-12 sm:w-36 overflow-hidden">
                                     <button type="button" aria-label="Decrease quantity" onClick={() => setQuickQty(Math.max(1, qty - 1))} className="px-4 h-full text-gray-600 hover:bg-gray-50 font-bold">−</button>
                                     <input
                                         type="number"
@@ -261,7 +263,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                                     type="button"
                                     onClick={() => handleQuickAdd(false)}
                                     disabled={isAdding || availableMatchingUnits.length === 0}
-                                    className="w-full sm:flex-1 h-12 rounded-xl text-sm font-bold bg-white border-2 border-[#0B2136] text-[#0B2136] hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full sm:flex-1 h-12 rounded-[12px] text-sm font-bold bg-white border-2 border-[#0B2136] text-[#0B2136] hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Add to Cart
                                 </button>
@@ -269,7 +271,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                                     type="button"
                                     onClick={() => handleQuickAdd(true)}
                                     disabled={isAdding || availableMatchingUnits.length === 0}
-                                    className="w-full sm:flex-1 h-12 rounded-xl text-sm font-bold bg-[#0B2136] text-white hover:bg-[#1B5E3B] shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full sm:flex-1 h-12 rounded-[12px] text-sm font-bold bg-[#0B2136] text-white hover:bg-[#1B5E3B] shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Buy Now
                                 </button>
@@ -288,15 +290,15 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                             <h2 id="offers-heading" className="bg-gradient-to-r from-[#0B2136] to-[#1B5E3B] px-5 py-3 text-sm font-bold uppercase tracking-wider text-white">Business offers</h2>
                             <ul className="divide-y divide-gray-100">
                                 <li className="flex items-start gap-3 px-5 py-3.5">
-                                    <span className="mt-0.5 rounded-md bg-[#F0FAF5] px-2 py-0.5 text-xs font-black text-[#1B5E3B]">{BULK_DISCOUNT_RATE * 100}% OFF</span>
+                                    <span className="mt-0.5 flex-shrink-0 whitespace-nowrap rounded-[6px] bg-[#F0FAF5] px-2 py-0.5 text-xs font-black text-[#1B5E3B]">{BULK_DISCOUNT_RATE * 100}% OFF</span>
                                     <p className="text-sm text-gray-700"><strong className="text-[#0B2136]">Bulk discount:</strong> buy {BULK_DISCOUNT_MIN_UNITS}+ units in one order and get {BULK_DISCOUNT_RATE * 100}% off all devices, applied automatically.</p>
                                 </li>
                                 <li className="flex items-start gap-3 px-5 py-3.5">
-                                    <span className="mt-0.5 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-black text-blue-700">WALLET</span>
+                                    <span className="mt-0.5 flex-shrink-0 whitespace-nowrap rounded-[6px] bg-blue-50 px-2 py-0.5 text-xs font-black text-blue-700">WALLET</span>
                                     <p className="text-sm text-gray-700"><strong className="text-[#0B2136]">GoRevive wallet:</strong> your wallet balance is applied at checkout before you pay.</p>
                                 </li>
                                 <li className="flex items-start gap-3 px-5 py-3.5">
-                                    <span className="mt-0.5 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-black text-gray-700">MOQ</span>
+                                    <span className="mt-0.5 flex-shrink-0 whitespace-nowrap rounded-[6px] bg-gray-100 px-2 py-0.5 text-xs font-black text-gray-700">MOQ</span>
                                     <p className="text-sm text-gray-700">Minimum order of {MIN_ORDER_UNITS} units per checkout, across any models.</p>
                                 </li>
                             </ul>
@@ -329,7 +331,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                             {related.map((r) => (
                                 <li key={r.slug}>
-                                    <Link href={`/products/${r.slug}`} className="block h-full bg-white border border-gray-100 rounded-xl p-4 hover:border-[#1B5E3B]/40 hover:shadow-sm transition-all">
+                                    <Link href={`/products/${r.slug}`} className="block h-full bg-white border border-gray-100 rounded-[12px] p-4 hover:border-[#1B5E3B]/40 hover:shadow-sm transition-all">
                                         <span className="block text-[11px] font-bold uppercase tracking-wider text-[#1B5E3B] mb-1">{r.brand}</span>
                                         <span className="block text-sm font-semibold text-[#0B2136] line-clamp-2">{r.model}</span>
                                     </Link>
@@ -357,7 +359,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                         type="button"
                         onClick={() => handleQuickAdd(true)}
                         disabled={isAdding || (isAuthenticated && availableMatchingUnits.length === 0)}
-                        className="h-11 rounded-xl bg-[#0B2136] px-6 text-sm font-bold text-white disabled:opacity-50"
+                        className="h-11 rounded-[12px] bg-[#0B2136] px-6 text-sm font-bold text-white disabled:opacity-50"
                     >
                         {isAuthenticated ? 'Buy Now' : 'Login'}
                     </button>

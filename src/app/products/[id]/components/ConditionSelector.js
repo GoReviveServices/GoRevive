@@ -17,7 +17,7 @@ export default function ConditionSelector({ grades, selected, onSelect, pricesBy
         <fieldset>
             <div className="mb-3 flex items-center justify-between">
                 <legend className="text-sm font-bold text-[#0B2136]">Condition</legend>
-                <Link href="/grading" className="text-xs font-semibold text-[#1B5E3B] hover:underline">Learn more</Link>
+                <Link href="/grading" className="inline-block py-1.5 text-xs font-semibold text-[#1B5E3B] hover:underline">Learn more</Link>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {grades.map((g) => {
@@ -29,7 +29,7 @@ export default function ConditionSelector({ grades, selected, onSelect, pricesBy
                             type="button"
                             aria-pressed={active}
                             onClick={() => onSelect(g)}
-                            className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${
+                            className={`rounded-[12px] border-2 px-3 py-2.5 text-left transition-colors ${
                                 active ? 'border-[#1B5E3B] bg-[#F0FAF5]' : 'border-gray-200 bg-white hover:border-gray-300'
                             }`}
                         >

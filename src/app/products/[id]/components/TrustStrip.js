@@ -10,9 +10,9 @@ const ITEMS = [
 
 export default function TrustStrip() {
     return (
-        <ul aria-label="Certifications" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <ul aria-label="Certifications" className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4">
             {ITEMS.map((i) => (
-                <li key={i.title} className="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white p-2.5">
+                <li key={i.title} className="flex min-w-0 items-center gap-2.5 rounded-[12px] border border-gray-100 bg-white p-2.5">
                     <Image src={i.src} alt={`${i.title} – ${i.sub}`} width={36} height={36} unoptimized={i.src.endsWith(".svg")} className="h-9 w-9 object-contain" />
                     <span className="min-w-0">
                         <span className="block text-xs font-bold text-[#0B2136]">{i.title}</span>
