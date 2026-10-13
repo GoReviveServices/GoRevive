@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/components/utils/Context/AuthContext';
 import { authService } from '@/services/authService';
 
-export default function AuthPage() {
+// Only allow redirects to pages on this site.
+const safeNext = (value) => (value && value.startsWith('/') && !value.startsWith('//') ? value : '/');
+
+function AuthPage() {
     const router = useRouter();
-    const { login, user } = useAuth();
+    const searchParams = useSearchParams();
+    const nextPath = safeNext(searchParams.get('next'));
+    const { user } = useAuth();
     
     // UI State
     const [isMounted, setIsMounted] = useState(false);
@@ -16,10 +21,6 @@ export default function AuthPage() {
     const [loading, setLoading] = useState(false);
     const [gstVerifying, setGstVerifying] = useState(false);
     
-    // Server Data State
-    const [serverOtp, setServerOtp] = useState('');
-    const [serverUser, setServerUser] = useState(null);
-
     // Form State
     const [formData, setFormData] = useState({
         telephone: "",
@@ -33,20 +34,19 @@ export default function AuthPage() {
         pincode: "",
         pancard: "",
         gst_no: "",
-        password: "N/A", // Hardcoded per requirements
     });
 
     // Hydration Safe Init: Check for existing session or logged-in user
     useEffect(() => {
         setIsMounted(true);
         if (user) {
-            router.push('/');
+            router.replace(nextPath);
         } else {
             const savedType = sessionStorage.getItem('userType');
             if (savedType === 'business') setStep('phone');
             if (savedType === 'individual') setStep('appLinks');
         }
-    }, [user, router]);
+    }, [user, router, nextPath]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -75,43 +75,39 @@ export default function AuthPage() {
         try {
             const response = await authService.login(formData.telephone);
 
-            if (response?.response?.status === "true" && response.response.data?.length > 0) {
-                const userData = response.response.data[0];
-
-                // Check if dummy/unregistered user
-                const isDummyUser = 
-                    userData.cust_name === "XYZ" || 
-                    userData.state === "state" || 
-                    userData.pincode === "0";
-
-                if (isDummyUser) {
-                    toast.success("Welcome! Let's set up your business profile.");
-                    setStep('register'); 
-                } else {
-                    setServerOtp(userData.otp); 
-                    setServerUser(userData); 
-                    toast.success("OTP sent to your mobile number.");
-                    setStep('otp'); 
-                }
+            if (response?.next === 'otp') {
+                toast.success("OTP sent to your mobile number.");
+                setStep('otp');
             } else {
-                toast.success("New number detected. Let's register.");
-                setStep('register'); 
+                toast.success("Welcome! Let's set up your business profile.");
+                setStep('register');
             }
         } catch (error) {
-            toast.error("Failed to connect. Please try again.");
+            toast.error(error.response?.data?.message || "Failed to connect. Please try again.");
         } finally {
             setLoading(false);
         }
     };
 
     // STEP 2: Verify OTP
-    const handleVerifyOtp = (e) => {
+    const handleVerifyOtp = async (e) => {
         e.preventDefault();
-        if (formData.otp.toString() === serverOtp.toString()) {
-            login(serverUser); // AuthContext handles the toast and storage
-            router.push('/'); 
-        } else {
-            toast.error("Invalid OTP. Please try again.");
+        setLoading(true);
+        try {
+            const response = await authService.verifyOtp(formData.otp);
+            if (response?.success && response.user) {
+                toast.success("Logged in. Loading your account...");
+                // Full page load (not client navigation): pages the browser
+                // prefetched while logged out (e.g. /cart cached as "go to
+                // login") are thrown away, so account pages open correctly.
+                window.location.assign(nextPath);
+            } else {
+                toast.error(response?.message || "Invalid OTP. Please try again.");
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Invalid OTP. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -157,20 +153,19 @@ export default function AuthPage() {
         setLoading(true);
 
         try {
-            const today = new Date().toISOString().split('T')[0];
-            const response = await authService.register({
-                ...formData,
-                create_date: today 
-            });
-            
-            if (response?.response?.status === "true" && response?.response?.code === 200) {
-                login(formData); 
-                router.push('/'); 
+            const response = await authService.register(formData);
+
+            if (response?.success && response.next === 'otp') {
+                toast.success("Registered! Enter the OTP sent to your mobile to finish.");
+                setStep('otp');
+            } else if (response?.success) {
+                toast.success("Registration received. Please log in with your mobile number.");
+                setStep('phone');
             } else {
-                toast.error(response?.response?.message || "Registration failed. Please try again.");
+                toast.error(response?.message || "Registration failed. Please try again.");
             }
         } catch (error) {
-            toast.error("An error occurred during registration.");
+            toast.error(error.response?.data?.message || "An error occurred during registration.");
         } finally {
             setLoading(false);
         }
@@ -184,13 +179,13 @@ export default function AuthPage() {
             <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-gray-100">
                 
                 <div className="text-center">
-                    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+                    <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                         {step === 'userType' && 'Welcome to GoRevive'}
                         {step === 'appLinks' && 'Get Our App'}
                         {step === 'phone' && 'Business Login'}
                         {step === 'otp' && 'Verify Your Login'}
                         {step === 'register' && 'Business Details'}
-                    </h2>
+                    </h1>
                     {step === 'phone' && <p className="mt-2 text-sm text-gray-600">Enter your registered mobile number</p>}
                     {step === 'register' && <p className="mt-2 text-sm text-gray-600">Please provide your GST to auto-fill details.</p>}
                 </div>
@@ -231,7 +226,7 @@ export default function AuthPage() {
                 {step === 'phone' && (
                     <form className="mt-8 space-y-6" onSubmit={handlePhoneSubmit}>
                         <div>
-                            <input name="telephone" type="tel" required maxLength={10} value={formData.telephone} onChange={handleChange} className="block w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition-all" placeholder="Enter Mobile Number" />
+                            <input name="telephone" type="tel" inputMode="numeric" autoComplete="tel-national" required maxLength={10} value={formData.telephone} onChange={handleChange} className="block w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition-all" placeholder="Enter Mobile Number" />
                         </div>
                         <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-gray-900 text-white bg-brand-blue hover:bg-brand-blue-dark shadow-md font-semibold transition-all disabled:opacity-70 disabled:cursor-not-allowed">
                             {loading ? 'Checking...' : 'Continue'}
@@ -249,10 +244,10 @@ export default function AuthPage() {
                     <form className="mt-8 space-y-6" onSubmit={handleVerifyOtp}>
                         <div>
                             <p className="text-sm text-gray-500 mb-2">Sent to +91 {formData.telephone}</p>
-                            <input name="otp" type="text" required maxLength={6} value={formData.otp} onChange={handleChange} className="block w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition-all tracking-widest text-center text-lg font-bold" placeholder="• • • • • •" />
+                            <input name="otp" type="text" inputMode="numeric" autoComplete="one-time-code" required maxLength={6} value={formData.otp} onChange={handleChange} className="block w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-blue focus:border-brand-blue outline-none transition-all tracking-widest text-center text-lg font-bold" placeholder="• • • • • •" />
                         </div>
-                        <button type="submit" className="w-full py-3 rounded-xl bg-gray-900 text-white bg-brand-blue hover:bg-brand-blue-dark shadow-md font-semibold transition-all">
-                            Verify & Login
+                        <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-gray-900 text-white bg-brand-blue hover:bg-brand-blue-dark shadow-md font-semibold transition-all disabled:opacity-70">
+                            {loading ? 'Verifying...' : 'Verify & Login'}
                         </button>
                         <div className="text-center mt-2">
                             <button type="button" onClick={() => setStep('phone')} className="text-sm font-medium text-brand-blue hover:underline">
@@ -322,5 +317,13 @@ export default function AuthPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+            <AuthPage />
+        </Suspense>
     );
 }

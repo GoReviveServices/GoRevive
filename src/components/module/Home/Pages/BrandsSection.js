@@ -9,7 +9,6 @@ const BrandsSection = () => {
     const { uniqueBrands } = useDashboard();
 
     if (!uniqueBrands || uniqueBrands.length === 0) return null;
-    console.log(uniqueBrands);
 
     return (
         <section id="brands" className="py-16 bg-white">

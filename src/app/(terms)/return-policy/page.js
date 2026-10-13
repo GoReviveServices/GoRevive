@@ -1,4 +1,11 @@
 import React from 'react';
+import { pageMetadata } from '@/lib/site';
+
+export const metadata = pageMetadata({
+  title: "Return & Exchange Policy",
+  description: "How to return or exchange refurbished laptops, desktops and other IT hardware bought from GoRevive, including eligibility and timelines.",
+  path: "/return-policy",
+});
 
 export default function ReturnPolicyPage() {
     const lastUpdated = "March 17, 2026";
@@ -104,7 +111,7 @@ export default function ReturnPolicyPage() {
               <div className="flex items-start">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 mr-4 shrink-0 text-xs font-bold border border-indigo-200">3</span>
                 <span className="text-sm mt-0.5">
-                  Fill out the <a href="#" className="font-semibold text-indigo-600 hover:text-indigo-500 underline">Return & Exchange Form</a>.
+                  Send a <a href="mailto:support@gorevive.in?subject=Return%20%26%20Exchange%20Request" className="font-semibold text-indigo-600 hover:text-indigo-500 underline">Return & Exchange request</a> with your order number and the device serial number.
                 </span>
               </div>
               <div className="flex items-start">

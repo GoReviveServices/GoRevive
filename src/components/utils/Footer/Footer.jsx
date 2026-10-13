@@ -1,17 +1,30 @@
 import React from 'react';
-import { Icon } from '../UI/Icons/Icon';
-// import { PRODUCT_CATEGORIES } from '../constants';
 import Link from 'next/link';
+import { Icon } from '../UI/Icons/Icon';
+import { getProductBundles } from '@/lib/server/inventory';
 
+// Top categories by stock, linked from every page (internal links help
+// search engines find and rank the category listings).
+async function topCategories(limit = 6) {
+  try {
+    const bundles = await getProductBundles();
+    const counts = new Map();
+    for (const b of bundles) if (b.category) counts.set(b.category, (counts.get(b.category) || 0) + b.totalStock);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([name]) => name);
+  } catch {
+    return [];
+  }
+}
 
-export const Footer = () => {
+export const Footer = async () => {
+  const categories = await topCategories();
   return (
     <footer className="bg-gray-800 text-white">
       <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
           
           <div className="space-y-4 col-span-2 md:col-span-1 lg:col-span-1">
-            <h3 className="text-2xl font-bold">GoRevive</h3>
+            <p className="text-2xl font-bold">GoRevive</p>
             <p className="text-gray-400">
               Your trusted partner for high-quality refurbished IT assets.
             </p>
@@ -23,22 +36,22 @@ export const Footer = () => {
 
           {/* Product Categories */}
           <div>
-            <h4 className="font-semibold tracking-wider uppercase">Products</h4>
+            <h2 className="font-semibold tracking-wider uppercase text-base">Products</h2>
             <ul className="mt-4 space-y-2">
-              {/* {PRODUCT_CATEGORIES.slice(0, 5).map(category => (
+              {categories.map(category => (
                 <li key={category}>
                   <Link href={`/products?category=${encodeURIComponent(category)}`} className="text-gray-400 hover:text-white transition-colors duration-200">
-                    {category}
+                    Refurbished {category}
                   </Link>
                 </li>
-              ))} */}
-               <li><Link href="/products" className="text-gray-400 hover:text-white font-semibold">View all...</Link></li>
+              ))}
+              <li><Link href="/products" className="text-gray-400 hover:text-white font-semibold">View all products</Link></li>
             </ul>
           </div>
           
           {/* Quick Links */}
           <div>
-            <h4 className="font-semibold tracking-wider uppercase">Company</h4>
+            <h2 className="font-semibold tracking-wider uppercase text-base">Company</h2>
             <ul className="mt-4 space-y-2">
               <li><Link href="/about" className="text-gray-400 hover:text-white">About Us</Link></li>
               <li><Link href="/products" className="text-gray-400 hover:text-white">Our Products</Link></li>
@@ -49,7 +62,7 @@ export const Footer = () => {
 
           {/* Legal */}
           <div>
-            <h4 className="font-semibold tracking-wider uppercase">Legal</h4>
+            <h2 className="font-semibold tracking-wider uppercase text-base">Legal</h2>
             <ul className="mt-4 space-y-2">
               <li><Link href="/privacy-policy" className="text-gray-400 hover:text-white">Privacy Policy</Link></li>
               <li><Link href="/shipping-policy" className="text-gray-400 hover:text-white">Shipping Policy</Link></li>
@@ -64,15 +77,15 @@ export const Footer = () => {
 
           {/* Support & Contact */}
           <div>
-            <h4 className="font-semibold tracking-wider uppercase">Support</h4>
+            <h2 className="font-semibold tracking-wider uppercase text-base">Support</h2>
             <div className="mt-4 space-y-3 text-gray-300">
                 <p><strong>Phone:</strong> <a href="tel:01142758155" className="hover:text-white">011 4275 8155</a></p>
                 <p><strong>Email:</strong> <a href="mailto:support@gorevive.in" className="hover:text-white">support@gorevive.in</a></p>
             </div>
             <div className="flex space-x-4 mt-6">
-                <a href="https://www.facebook.com/Goreviveofficial/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><span className="sr-only">Facebook</span><Icon type="facebook" /></a>
-                <a href="https://www.instagram.com/gorevive_official/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><span className="sr-only">Instagram</span><Icon type="instagram" /></a>
-                <a href="https://www.linkedin.com/company/gorevive-private-limited" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><span className="sr-only">LinkedIn</span><Icon type="linkedin" /></a>
+                <a href="https://www.facebook.com/Goreviveofficial/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><span className="sr-only">GoRevive on Facebook</span><Icon type="facebook" /></a>
+                <a href="https://www.instagram.com/gorevive_official/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><span className="sr-only">GoRevive on Instagram</span><Icon type="instagram" /></a>
+                <a href="https://www.linkedin.com/company/gorevive-private-limited" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><span className="sr-only">GoRevive on LinkedIn</span><Icon type="linkedin" /></a>
             </div>
           </div>
 

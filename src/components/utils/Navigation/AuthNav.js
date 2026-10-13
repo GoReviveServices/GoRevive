@@ -1,16 +1,15 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '../Context/AuthContext';
 
 export const AuthNav = () => {
     const { isAuthenticated, logout } = useAuth();
-    const router = useRouter();
 
-    const handleLogout = () => {
-        logout();
-        router.push('/');
+    const handleLogout = async () => {
+        await logout();
+        // Full page load so nothing cached while signed in stays visible.
+        window.location.assign('/');
     };
 
     if (isAuthenticated) {

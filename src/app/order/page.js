@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/utils/Context/AuthContext';
 import api from '@/lib/apiClient';
+import { imageUrl } from '@/lib/site';
 import toast from 'react-hot-toast';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
@@ -28,7 +29,7 @@ export default function OrdersPage() {
         if (isAuthenticated && user?.crm_party_code) {
             const fetchOrders = async () => {
                 try {
-                    const response = await api.get(`/user/orders?userId=${user.crm_party_code}`);
+                    const response = await api.get('/user/orders');
                     
                     if (response.data?.success) {
                         const groupedOrders = response.data.orders.reduce((acc, item) => {
@@ -100,7 +101,7 @@ export default function OrdersPage() {
                             <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                         </div>
                         <h2 className="text-xl font-bold text-[#0B2136] mb-2">No orders found</h2>
-                        <p className="text-gray-500 mb-6">You haven't placed any B2B orders yet.</p>
+                        <p className="text-gray-500 mb-6">You haven’t placed any B2B orders yet.</p>
                         <Link href="/products" className="bg-[#0B2136] text-white font-bold px-6 py-3 rounded-lg hover:bg-[#12304d] transition-colors">
                             Browse Inventory
                         </Link>
@@ -136,7 +137,7 @@ export default function OrdersPage() {
                                     {/* Action Button */}
                                     {/* {order.link_print && order.status !== "Cancelled" && (
                                         <a 
-                                            href={`https://gorevive.jbbs.in/app_api/API/${order.link_print}`} 
+                                            href={imageUrl(`app_api/API/${order.link_print}`)} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
                                             className="whitespace-nowrap text-sm font-bold text-[#1B5E3B] bg-emerald-50 px-5 py-2.5 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-100 flex items-center justify-center gap-2"

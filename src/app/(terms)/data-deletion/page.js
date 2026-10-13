@@ -1,5 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
+import { pageMetadata } from '@/lib/site';
+
+export const metadata = pageMetadata({
+  title: "Data Deletion Request",
+  description: "Ask GoRevive to delete your account and personal data, and learn how we securely erase data from devices we refurbish.",
+  path: "/data-deletion",
+});
 
 export default function DataDeletionPage() {
   const lastUpdated = "March 17, 2026";

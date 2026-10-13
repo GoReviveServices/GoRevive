@@ -1,0 +1,75 @@
+import 'server-only';
+import { SignJWT, jwtVerify } from 'jose';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+
+const SESSION_COOKIE = 'auth_token';
+const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+
+const secret = () => {
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not set');
+    if (process.env.JWT_SECRET.length < 32) {
+        console.warn('JWT_SECRET is shorter than 32 characters; use a longer random secret.');
+    }
+    return new TextEncoder().encode(process.env.JWT_SECRET);
+};
+
+const cookieOptions = (maxAge) => ({
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge,
+});
+
+// Only these fields ever go into the session. Never sign client-supplied objects.
+export const pickSessionUser = (u = {}) => ({
+    crm_party_code: String(u.crm_party_code ?? ''),
+    cust_name: u.cust_name ?? '',
+    mobile: u.mobile ?? u.mobile_no ?? '',
+    email: u.email ?? '',
+    gst_no: u.gst_no ?? '',
+    address1: u.address1 ?? '',
+    address2: u.address2 ?? '',
+    city: u.city ?? '',
+    state: u.state ?? '',
+    pincode: u.pincode ?? '',
+});
+
+export async function signToken(payload, expiresIn) {
+    return new SignJWT(payload)
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(expiresIn)
+        .sign(secret());
+}
+
+export async function verifyToken(token) {
+    const { payload } = await jwtVerify(token, secret());
+    return payload;
+}
+
+/** Issue the login session cookie on a response. */
+export async function setSessionCookie(response, user) {
+    const token = await signToken({ ...pickSessionUser(user), typ: 'session' }, '7d');
+    response.cookies.set(SESSION_COOKIE, token, cookieOptions(SESSION_MAX_AGE));
+    return response;
+}
+
+/** Returns the signed-in user, or null. Use in route handlers and server components. */
+export async function getSessionUser() {
+    const token = (await cookies()).get(SESSION_COOKIE)?.value;
+    if (!token) return null;
+    try {
+        const payload = await verifyToken(token);
+        if (payload.typ !== 'session' || !payload.crm_party_code) return null;
+        return payload;
+    } catch {
+        return null;
+    }
+}
+
+export const unauthorized = () =>
+    NextResponse.json({ success: false, message: 'Please log in.' }, { status: 401 });
+
+export { SESSION_COOKIE, cookieOptions };

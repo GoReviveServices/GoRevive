@@ -1,8 +1,7 @@
 import React from 'react';
 
 function SidebarSummary({ 
-    cartItems, 
-    cartSubtotal, 
+    totals, 
     totalRequestAmount, 
     walletBalance,
     applicableWalletAmount,
@@ -19,16 +18,16 @@ function SidebarSummary({
                 <div className="space-y-4 mb-6">
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-500 font-medium">Total Assets</span>
-                        <span className="font-bold text-[#0B2136]">{cartItems.length} Units</span>
+                        <span className="font-bold text-[#0B2136]">{totals.units} Units</span>
                     </div>
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-500 font-medium">Subtotal</span>
-                        <span className="font-bold text-[#0B2136]">{formatCurrency(cartSubtotal)}</span>
+                        <span className="font-bold text-[#0B2136]">{formatCurrency(totals.subtotal)}</span>
                     </div>
-                    {cartItems.length >= 10 && (
+                    {totals.discount > 0 && (
                         <div className="flex justify-between text-sm text-emerald-600">
                             <span className="font-bold">Bulk Discount (3%)</span>
-                            <span className="font-bold">- {formatCurrency(cartSubtotal * 0.03)}</span>
+                            <span className="font-bold">- {formatCurrency(totals.discount)}</span>
                         </div>
                     )}
                     <div className="flex justify-between text-sm">

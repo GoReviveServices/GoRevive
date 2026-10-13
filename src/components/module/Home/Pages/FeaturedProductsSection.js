@@ -1,24 +1,17 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { getFeaturedProducts } from '@/services/productService';
+import { useDashboard } from '@/components/utils/Context/DashboardContext';
 import { ProductCard } from '../Components/ProductCard';
 
 export const FeaturedProductsSection = () => {
-    const [products, setProducts] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            setIsLoading(true);
-            const data = await getFeaturedProducts();
-            setProducts(data);
-            setIsLoading(false);
-        };
-        
-        fetchProducts();
-    }, []);
+    // Reuses the catalogue already loaded for the page instead of a second request.
+    const { productData, isLoading } = useDashboard();
+    const products = useMemo(
+        () => [...(productData || [])].sort((a, b) => b.totalStock - a.totalStock).slice(0, 4),
+        [productData]
+    );
 
     return (
         <section id="featured-products" className="bg-gray-50 py-16">

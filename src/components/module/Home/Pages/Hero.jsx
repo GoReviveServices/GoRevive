@@ -9,10 +9,10 @@ import { FeaturedProductsSection } from './FeaturedProductsSection'
 import CategoriesSection from './CategoriesSection'
 import BrandsSection from './BrandsSection'
 
-function Hero() {
+function Hero({ initialBanners = [] }) {
   return (
     <>
-    <BannerSlider/>
+    <BannerSlider initialBanners={initialBanners} />
     <ITADCapabilitiesSection/>
     <CompanyStats/>
     <CategoriesSection/>

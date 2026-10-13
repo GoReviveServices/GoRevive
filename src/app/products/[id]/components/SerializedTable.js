@@ -24,9 +24,11 @@ export default function SerializedTable({ matchingUnits }) {
 
     const handleAddToCart = async (unit) => {
         setAddingToCart(unit.id);
-        await new Promise(resolve => setTimeout(resolve, 300));
-        addToCart(unit, 1);
-        setAddingToCart(null);
+        try {
+            await addToCart(unit);
+        } finally {
+            setAddingToCart(null);
+        }
     };
 
     const handleQuickAdd = async (unit, redirect = false) => {
@@ -50,7 +52,7 @@ export default function SerializedTable({ matchingUnits }) {
                         </svg>
                     </div>
                     <div>
-                        <h3 className="font-bold text-gray-900 text-[15px]">Available Units in Warehouse</h3>
+                        <h2 className="font-bold text-gray-900 text-[15px]">Available Units in Warehouse</h2>
                         <p className="text-xs text-gray-500 mt-0.5">Real-time inventory updates</p>
                     </div>
                 </div>
@@ -70,7 +72,7 @@ export default function SerializedTable({ matchingUnits }) {
                     </div>
                     <p className="text-lg font-bold text-gray-700">Configuration Out of Stock</p>
                     <p className="text-sm text-gray-500 mt-1 max-w-sm leading-relaxed">
-                        We currently don't have this exact specification in our warehouse.
+                        We currently don’t have this exact specification in our warehouse.
                         Try selecting a different Grade or Spec, or check back soon for new inventory.
                     </p>
                 </div>
@@ -104,7 +106,7 @@ export default function SerializedTable({ matchingUnits }) {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                             </div>
-                            <h4 className="text-lg font-bold text-gray-900 mb-2">B2B Access Required</h4>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">B2B Access Required</h3>
                             <p className="text-sm text-gray-600 mb-6">Login to view serial numbers and wholesale pricing</p>
                             <button
                                 onClick={() => router.push('/login')}
@@ -226,12 +228,12 @@ export default function SerializedTable({ matchingUnits }) {
                                     </p>
                                 </div>
                             </div>
-                            <a href="#" className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors whitespace-nowrap">
+                            <Link href="/#offers" className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors whitespace-nowrap">
                                 View all offers
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                 </svg>
-                            </a>
+                            </Link>
                         </div>
                     </div>
                 </div>

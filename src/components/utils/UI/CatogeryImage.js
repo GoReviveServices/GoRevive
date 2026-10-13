@@ -12,7 +12,7 @@ const CatogeryImage = ({ type, className = 'w-6 h-6' }) => {
     'mobiles': "https://i.pinimg.com/736x/24/22/32/24223258deb2711a6cfb6ffe2ba3b5e9.jpg",
     'iphone': "https://i.pinimg.com/1200x/18/84/24/1884248df0286062436ea23d29ef5183.jpg",
     'smart phone': "https://i.pinimg.com/736x/24/22/32/24223258deb2711a6cfb6ffe2ba3b5e9.jpg",
-    'tiny desktop': "/mini.svg",
+    'tiny desktop': "/images/tiny-desktop-mini-pc.svg",
   };
 
   // Safe fallback just in case the backend returns an unknown category
@@ -22,7 +22,7 @@ const CatogeryImage = ({ type, className = 'w-6 h-6' }) => {
     <img 
       src={imageUrl} 
       className={className} 
-      alt={`${type || 'Category'}`}
+      alt={type ? `Refurbished ${type}` : ''}
       loading="lazy"
     />
   );

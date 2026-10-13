@@ -1,4 +1,11 @@
 import React from 'react';
+import { pageMetadata } from '@/lib/site';
+
+export const metadata = pageMetadata({
+  title: "Shipping Policy",
+  description: "Delivery timelines, shipping charges and packaging for bulk refurbished laptop and IT hardware orders from GoRevive across India.",
+  path: "/shipping-policy",
+});
 
 export default function ShippingPolicyPage() {
   const lastUpdated = "March 17, 2026";

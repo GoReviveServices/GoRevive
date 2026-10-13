@@ -1,29 +1,16 @@
 import { NextResponse } from 'next/server';
-import axios from 'axios';
+import { getSessionUser, unauthorized } from '@/lib/server/session';
+import { getWalletBalance } from '@/lib/server/orders';
 
-export async function GET(request) {
+export async function GET() {
+    const user = await getSessionUser();
+    if (!user) return unauthorized();
+
     try {
-        const { searchParams } = new URL(request.url);
-        const userId = searchParams.get('userId');
-
-        if (!userId) {
-            return NextResponse.json({ success: false, message: "User ID is required" }, { status: 400 });
-        }
-
-        const phpResponse = await axios.post(`${process.env.PHP_API_BASE_URL}/get_customer_ledger.php`, {
-            customer_id: userId,
-            token: process.env.PHP_STATIC_TOKEN
-        });
-
-        const apiPayload = phpResponse.data?.response || phpResponse.data;
-
-        if (String(apiPayload?.status).toLowerCase() === "true" && Array.isArray(apiPayload?.data)) {
-            return NextResponse.json({ success: true, kycData: apiPayload.data[0] }, { status: 200 });
-        } 
-        return NextResponse.json({ success: false, message: "Failed to fetch ledger" }, { status: 400 });
-
+        const balance = await getWalletBalance(user.crm_party_code);
+        return NextResponse.json({ success: true, balance }, { headers: { 'Cache-Control': 'private, no-store' } });
     } catch (error) {
-        console.error("ledger Fetch Error:", error.message);
-        return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
+        console.error('Ledger fetch error:', error.message);
+        return NextResponse.json({ success: false, message: 'Failed to fetch ledger' }, { status: 500 });
     }
 }

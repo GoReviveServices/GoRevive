@@ -1,30 +1,28 @@
 import { NextResponse } from 'next/server';
-import axios from 'axios';
+import { phpPost, isTrue } from '@/lib/server/php';
+import { cached } from '@/lib/server/cache';
+
+const CACHE_HEADERS = { 'Cache-Control': 'public, max-age=300, s-maxage=3600' };
 
 export async function GET(request) {
+    const imei = (new URL(request.url).searchParams.get('imei') || '').trim();
+    if (!/^[A-Za-z0-9-]{4,40}$/.test(imei)) {
+        return NextResponse.json({ success: false, message: 'A valid IMEI / serial number is required' }, { status: 400 });
+    }
+
     try {
-        const { searchParams } = new URL(request.url);
-        const imei = searchParams.get('imei');
-
-        if (!imei) {
-            return NextResponse.json({ success: false, message: "IMEI is required" }, { status: 400 });
-        }
-
-        const phpResponse = await axios.post(`${process.env.PHP_API_BASE_URL}/get_qc_details.php`, {
-            imei: imei,
-            token: process.env.PHP_STATIC_TOKEN 
+        // Only successful reports are cached; "not found" is re-checked each time.
+        const data = await cached(`qc:${imei}`, 60 * 60 * 1000, async () => {
+            const payload = await phpPost('get_qc_details.php', { imei });
+            if (isTrue(payload) && Array.isArray(payload?.data)) return payload.data;
+            throw Object.assign(new Error('QC not found'), { notFound: true, upstreamMessage: payload?.message });
         });
-
-        const apiPayload = phpResponse.data?.response || phpResponse.data;
-
-        if (String(apiPayload?.status).toLowerCase() === "true" && Array.isArray(apiPayload?.data)) {
-            return NextResponse.json({ success: true, data: apiPayload.data }, { status: 200 });
-        } 
-        
-        return NextResponse.json({ success: false, message: apiPayload?.message || "No QC record found." }, { status: 404 });
-
+        return NextResponse.json({ success: true, data }, { headers: CACHE_HEADERS });
     } catch (error) {
-        console.error("QC Fetch Error:", error.message);
-        return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
+        if (error.notFound) {
+            return NextResponse.json({ success: false, message: error.upstreamMessage || 'No QC record found.' }, { status: 404 });
+        }
+        console.error('QC fetch error:', error.message);
+        return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
     }
 }

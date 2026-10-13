@@ -171,9 +171,9 @@ export default function GoReviveGrading() {
         
         {/* Header Section */}
         <div className="text-center max-w-4xl mx-auto mb-10">
-          <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
-            GoRevive Grading Parameters
-          </h2>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+            Refurbished Device Grading Parameters
+          </h1>
           <p className="text-lg text-slate-500">
             Total transparency across our entire catalog. Select a device category below to see exactly what to expect from every grade tier.
           </p>
@@ -231,10 +231,10 @@ export default function GoReviveGrading() {
                     {/* Category Sub-Header */}
                     <tr className="bg-slate-50/80 border-y border-slate-200">
                       <td colSpan={6} className="sticky left-0 px-6 py-4 shadow-[inset_-1px_0_0_rgba(226,232,240,1)] bg-slate-50/90 backdrop-blur-sm z-10">
-                        <h3 className="text-sm font-extrabold text-blue-900 uppercase tracking-widest flex items-center gap-2">
+                        <h2 className="text-sm font-extrabold text-blue-900 uppercase tracking-widest flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                           {group.category}
-                        </h3>
+                        </h2>
                       </td>
                     </tr>
 

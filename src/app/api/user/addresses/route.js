@@ -1,30 +1,17 @@
 import { NextResponse } from 'next/server';
-import axios from 'axios';
+import { phpPost, isTrue } from '@/lib/server/php';
+import { getSessionUser, unauthorized } from '@/lib/server/session';
 
-export async function GET(request) {
+export async function GET() {
+    const user = await getSessionUser();
+    if (!user) return unauthorized();
+
     try {
-        const { searchParams } = new URL(request.url);
-        const userId = searchParams.get('userId');
-
-        if (!userId) {
-            return NextResponse.json({ success: false, message: "User ID is required" }, { status: 400 });
-        }
-
-        const phpResponse = await axios.post(`${process.env.PHP_API_BASE_URL}/view_address.php`, {
-            user_id: userId,
-            token: process.env.PHP_STATIC_TOKEN 
-        });
-
-        const apiPayload = phpResponse.data?.response || phpResponse.data;
-
-        if (String(apiPayload?.status).toLowerCase() === "true" && Array.isArray(apiPayload?.data)) {
-            return NextResponse.json({ success: true, addresses: apiPayload.data }, { status: 200 });
-        } 
-        
-        return NextResponse.json({ success: true, addresses: [] }, { status: 200 });
-
+        const payload = await phpPost('view_address.php', { user_id: user.crm_party_code });
+        const addresses = isTrue(payload) && Array.isArray(payload?.data) ? payload.data : [];
+        return NextResponse.json({ success: true, addresses }, { headers: { 'Cache-Control': 'private, no-store' } });
     } catch (error) {
-        console.error("Address Fetch Error:", error.message);
-        return NextResponse.json({ success: false, message: "Internal server error while fetching addresses" }, { status: 500 });
+        console.error('Address fetch error:', error.message);
+        return NextResponse.json({ success: false, message: 'Could not load addresses.' }, { status: 500 });
     }
 }

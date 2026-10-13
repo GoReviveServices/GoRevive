@@ -27,21 +27,14 @@ export const AuthProvider = ({ children }) => {
         checkUser();
     }, []);
 
-   const login = useCallback(async (userData) => {
-        try {
-            await api.post('/auth/session', userData);
-            
-            setUser(userData);
-            toast.success("Successfully logged in!");
-        } catch (error) {
-            console.error("Failed to set session cookie", error);
-            toast.error("Login finalized, but session error occurred.");
-        }
+    // The session cookie is issued by /api/auth/verify-otp; this only updates UI state.
+    const login = useCallback((sessionUser) => {
+        setUser(sessionUser);
+        toast.success("Successfully logged in!");
     }, []);
 
     const logout = useCallback(async () => {
         try {
-            localStorage.removeItem('token')
             await api.post('/auth/logout');
             setUser(null);
             toast.success("Logged out securely.");
@@ -55,6 +48,7 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated: !!user,
         isInitializing,
+        loading: isInitializing,
         login,
         logout,
     }), [user, isInitializing, login, logout]);

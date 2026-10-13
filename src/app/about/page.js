@@ -1,12 +1,19 @@
 // import { Icon } from '../components/Icon';
 
 import { Icon } from "@/components/utils/UI/Icons/Icon";
+import { pageMetadata } from '@/lib/site';
+
+export const metadata = pageMetadata({
+  title: "About Us – Certified IT Refurbisher in Delhi",
+  description: "GoRevive gives IT assets a second life: certified refurbishment, NIST 800-88 data erasure and CPCB-authorised e-waste recycling. Meet our leadership team.",
+  path: "/about",
+});
 
 export default function AboutUs() {
   const directors = [
-    { name: "Rohit Kakkar", title: "Founder and Director", image: "/2.svg", linkedin: "https://www.linkedin.com/in/rohit-kakkar-38539816/" },
-    { name: "Ankush Bhan", title: "Founder and Director", image: "/3.svg", linkedin: "https://www.linkedin.com/in/ankush-bhan-26b90b5/" },
-    { name: "Dheeraj Joshi", title: "Vice President, Sales", image: "/1.svg", linkedin: "https://www.linkedin.com/in/dheeraj-joshi/" }
+    { name: "Rohit Kakkar", title: "Founder and Director", image: "/images/rohit-kakkar-founder-director-gorevive.svg", linkedin: "https://www.linkedin.com/in/rohit-kakkar-38539816/" },
+    { name: "Ankush Bhan", title: "Founder and Director", image: "/images/ankush-bhan-founder-director-gorevive.svg", linkedin: "https://www.linkedin.com/in/ankush-bhan-26b90b5/" },
+    { name: "Dheeraj Joshi", title: "Vice President, Sales", image: "/images/dheeraj-joshi-vice-president-sales-gorevive.svg", linkedin: "https://www.linkedin.com/in/dheeraj-joshi/" }
   ];
 
   const officeImages = [
@@ -23,7 +30,7 @@ export default function AboutUs() {
       <section className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pt-24 pb-48 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
         <div className="relative container mx-auto text-center max-w-4xl">
-          <h1 className="text-5xl md:text-6xl font-extrabold text-white tracking-tight mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight mb-6">
             Reviving Technology, <br className="hidden md:block" />
             <span className="text-blue-400">Sustaining the Future.</span>
           </h1>
@@ -52,7 +59,7 @@ export default function AboutUs() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Vision</h2>
             <p className="text-slate-600 leading-relaxed">
-              To be India's most trusted and efficient recircular economy platform for IT assets, empowering progress through accessible technology.
+              To be India’s most trusted and efficient recircular economy platform for IT assets, empowering progress through accessible technology.
             </p>
           </div>
 
@@ -60,7 +67,7 @@ export default function AboutUs() {
             {/* Using standard img tags here to avoid Next.js domain config requirements for external URLs. */}
             <img 
               src="https://images.unsplash.com/photo-1581093450021-4a7360e9a6b5?q=80&w=800&auto=format&fit=crop" 
-              alt="Our Team" 
+              alt="Team collaborating around a laptop in an office" 
               className="w-full h-full object-cover"
             />
           </div>
@@ -80,7 +87,7 @@ export default function AboutUs() {
               <div key={index} className="group flex flex-col items-center bg-slate-50 p-8 rounded-3xl transition-all duration-300 hover:bg-white hover:shadow-2xl hover:-translate-y-2 border border-transparent hover:border-slate-100">
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-blue-600 rounded-full blur opacity-0 group-hover:opacity-30 transition-opacity duration-300 transform scale-110"></div>
-                  <img src={director.image} alt={director.name} className="relative w-40 h-40 rounded-full object-cover border-4 border-white shadow-md z-10"/>
+                  <img src={director.image} alt={`${director.name}, ${director.title} at GoRevive`} className="relative w-40 h-40 rounded-full object-cover border-4 border-white shadow-md z-10"/>
                   <a 
                     href={director.linkedin} 
                     target="_blank" 
@@ -115,7 +122,7 @@ export default function AboutUs() {
             >
               <img 
                 src={src} 
-                alt={`Office view ${index + 1}`} 
+                alt={['Open-plan office workspace', 'Team meeting in a conference room', 'Colleagues working together at a desk'][index] || 'Office workspace'} 
                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-in-out min-h-[250px]" 
               />
             </div>

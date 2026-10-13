@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/apiClient';
+import SmartImage from '@/components/utils/UI/SmartImage';
+import { imageUrl } from '@/lib/site';
 
 export default function QCReportPage() {
     const router = useRouter();
@@ -23,7 +25,7 @@ export default function QCReportPage() {
     useEffect(() => {
         const fetchQCDetails = async () => {
             try {
-                const response = await api.get(`/qc?imei=${imei}`);
+                const response = await api.get("/qc", { params: { imei } });
                 
                 if (response.data?.success) {
                     const rawData = response.data.data;
@@ -128,14 +130,14 @@ export default function QCReportPage() {
                             </h2>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 {images.map((imgUrl, index) => (
-                                    console.log("image:", images),
 
-                                    <div key={index} className="aspect-square  border-gray-200 rounded-xl overflow-hidden p-2 flex items-center justify-center">
-                                        <img 
-                                            src={`https://gorevive.jbbs.in/${imgUrl}`} 
-                                            alt={`QC Device ${index + 1}`}
-                                            className="max-w-full max-h-full object-contain"
-                                            onError={(e) => { e.target.src = '/placeholder_laptop.png' }}
+                                    <div key={index} className="relative aspect-square border-gray-200 rounded-xl overflow-hidden p-2">
+                                        <SmartImage
+                                            src={imageUrl(imgUrl)}
+                                            alt={`Quality check photo ${index + 1} of device ${imei}`}
+                                            fill
+                                            sizes="(min-width: 768px) 33vw, 50vw"
+                                            className="object-contain p-2"
                                         />
                                     </div>
                                 ))}

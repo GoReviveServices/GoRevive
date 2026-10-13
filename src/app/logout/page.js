@@ -1,48 +1,34 @@
 "use client";
 
 import React, { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/utils/Context/AuthContext';
 import { useCart } from '@/components/utils/Context/CartContext';
-import toast from 'react-hot-toast';
 
 export default function LogoutPage() {
-    const router = useRouter();
     
     const { logout } = useAuth(); 
     const { clearCart } = useCart(); 
 
-    const hasLoggedOut = useRef(false);
+    // Keep the latest functions in a ref so the effect below runs exactly once,
+    // even when the auth/cart context re-renders while it waits.
+    const actions = useRef({ logout, clearCart });
+    useEffect(() => {
+        actions.current = { logout, clearCart };
+    }, [logout, clearCart]);
 
     useEffect(() => {
-        if (hasLoggedOut.current) return;
-        hasLoggedOut.current = true;
-
-        const performSecureLogout = async () => {
+        const timer = setTimeout(async () => {
             try {
-                if (clearCart) {
-                    clearCart();
-                }
-
-                if (logout) {
-                    await logout();
-                }
-
-                toast.success("Successfully logged out");
-                router.replace('/login'); 
-
+                actions.current.clearCart?.();
+                await actions.current.logout?.();
             } catch (error) {
-                console.error("Logout sequence failed:", error);
-                router.replace('/login');
+                console.error("Logout failed:", error);
             }
-        };
-
-        const timer = setTimeout(() => {
-            performSecureLogout();
+            // Full page load so nothing cached while signed in stays visible.
+            window.location.replace('/login');
         }, 800);
-
         return () => clearTimeout(timer);
-    }, [logout, clearCart, router]);
+    }, []);
 
     return (
         <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center pb-20">

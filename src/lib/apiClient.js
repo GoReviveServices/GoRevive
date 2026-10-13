@@ -10,7 +10,10 @@ const api = axios.create({
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        console.error("API Error:", error.response?.data || error.message);
+        // 401/404 are normal outcomes the callers handle; only log real failures.
+        if (![401, 404].includes(error.response?.status)) {
+            console.error("API Error:", error.response?.status || error.message);
+        }
         return Promise.reject(error);
     }
 );

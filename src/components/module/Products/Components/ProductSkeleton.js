@@ -3,7 +3,7 @@ export const ProductSkeleton = () => {
         <div className="flex flex-row md:flex-col bg-white border border-gray-100  rounded-2xl overflow-hidden h-full ">
             
             {/* Image Placeholder */}
-            <div className="w-[40%] md:w-full aspect-square md:aspect-[4/3] bg-gray-100 animate-pulse flex-shrink-0 border-r md:border-r-0 md:border-b border-gray-100">
+            <div className="relative w-[40%] md:w-full aspect-square md:aspect-[4/3] bg-gray-100 animate-pulse flex-shrink-0 border-r md:border-r-0 md:border-b border-gray-100">
                 {/* Fake Condition Badge */}
                 <div className="absolute top-2 left-2 md:top-3 md:left-3 w-16 h-5 bg-gray-200 rounded-md"></div>
             </div>

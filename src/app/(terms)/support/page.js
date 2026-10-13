@@ -1,3 +1,11 @@
+import { pageMetadata } from '@/lib/site';
+
+export const metadata = pageMetadata({
+  title: "Contact & Support",
+  description: "Contact GoRevive for bulk refurbished laptop orders, warranty claims and IT asset disposal. Call 011 4275 8155 or email support@gorevive.in.",
+  path: "/support",
+});
+
 export default function SupportPage() {
 
   return (
@@ -10,7 +18,7 @@ export default function SupportPage() {
             Contact & Support
           </h1>
           <p className="text-lg font-medium text-slate-300 max-w-2xl">
-            We're here to help. Reach out to us through any of our channels below.
+            We’re here to help. Reach out to us through any of our channels below.
           </p>
         </header>
 
@@ -20,7 +28,7 @@ export default function SupportPage() {
           {/* Phone Support */}
           <div className="p-8 bg-slate-50 border border-slate-200 rounded-none shadow-sm flex flex-col justify-between text-center">
             <div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">Telephonic Support</h3>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Telephonic Support</h2>
               <p className="text-sm text-slate-600 mb-4">Speak directly with our support team.</p>
             </div>
             <a 
@@ -34,7 +42,7 @@ export default function SupportPage() {
           {/* Email Support */}
           <div className="p-8 bg-slate-50 border border-slate-200 rounded-none shadow-sm flex flex-col justify-between text-center">
             <div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">Email Support</h3>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Email Support</h2>
               <p className="text-sm text-slate-600 mb-4">Get assistance via email.</p>
             </div>
             <a 
@@ -48,7 +56,7 @@ export default function SupportPage() {
           {/* Office Address */}
           <div className="p-8 bg-slate-50 border border-slate-200 rounded-none shadow-sm flex flex-col justify-between text-center">
             <div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">Our Office</h3>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Our Office</h2>
               <p className="text-sm text-slate-600 leading-relaxed">
                 Second Floor, D-161, Okhla Phase I,<br />
                 Okhla Industrial Estate,<br />

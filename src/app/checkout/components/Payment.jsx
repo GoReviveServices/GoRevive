@@ -19,7 +19,7 @@ function Payment({ onInitiatePayment, isInitiatingPayment }) {
                     onClick={() => onInitiatePayment('CASHFREE', "")}
                     className="border-2 border-gray-200 text-gray-700 font-bold py-4 rounded-xl hover:bg-gray-50 flex justify-center items-center disabled:opacity-50 transition-colors"
                 >
-                    <img src="/UPI_logo.svg" className='h-5 mr-3' alt="UPI" />
+                    <img src="/images/upi-payment-logo.svg" className='h-5 mr-3' alt="UPI" />
                     Pay via UPI
                 </button>
 

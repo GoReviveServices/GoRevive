@@ -17,7 +17,7 @@ export default function Configurator({
             {/* Grade Selector */}
             {availableGrades.length > 0 && (
                 <div>
-                    <h3 className="font-semibold text-gray-600 text-sm mb-3">Condition Grade</h3>
+                    <h2 className="font-semibold text-gray-600 text-sm mb-3">Condition Grade</h2>
                     <div className="flex flex-wrap gap-3">
                         {availableGrades.map(grade => (
                             <button
@@ -39,7 +39,7 @@ export default function Configurator({
             {/* Spec Selectors (RAM, Storage, etc.) */}
             {Object.entries(specOptions).map(([specName, options]) => (
                 <div key={specName}>
-                    <h3 className="font-semibold text-gray-600 text-sm mb-3 capitalize">{specName}</h3>
+                    <h2 className="font-semibold text-gray-600 text-sm mb-3 capitalize">{specName}</h2>
                     <div className="flex flex-wrap gap-3">
                         {options.map(option => (
                             <button

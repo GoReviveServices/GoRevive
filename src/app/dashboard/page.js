@@ -27,7 +27,7 @@ export default function DashboardPage() {
         if (isAuthenticated && user?.crm_party_code) {
             const fetchKycStatus = async () => {
                 try {
-                    const response = await api.get(`/user/kyc?userId=${user.crm_party_code}`);
+                    const response = await api.get('/user/kyc');
                     if (response.data?.success) {
                         setKycData(response.data.kycData);
                     }
@@ -184,7 +184,7 @@ export default function DashboardPage() {
                                                 </div>
                                             </div>
                                             {kycData?.aadhar_img ? (
-                                                <a href={'#'} rel="noopener noreferrer" className="text-sm font-bold text-[#1B5E3B] bg-emerald-50 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors">Submited</a>
+                                                <span className="text-sm font-bold text-[#1B5E3B] bg-emerald-50 px-4 py-2 rounded-lg">Submitted</span>
                                             ) : (
                                                 <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded uppercase">Missing</span>
                                             )}
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                                                 </div>
                                             </div>
                                             {kycData?.pan_img ? (
-                                                <a href={'#'} rel="noopener noreferrer" className="text-sm font-bold text-[#1B5E3B] bg-emerald-50 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors">Submited</a>
+                                                <span className="text-sm font-bold text-[#1B5E3B] bg-emerald-50 px-4 py-2 rounded-lg">Submitted</span>
                                             ) : (
                                                 <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded uppercase">Missing</span>
                                             )}
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                                                 </div>
                                             </div>
                                             {kycData?.gst_img ? (
-                                                <a href={'#'} rel="noopener noreferrer" className="text-sm font-bold text-[#1B5E3B] bg-emerald-50 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors">Submited</a>
+                                                <span className="text-sm font-bold text-[#1B5E3B] bg-emerald-50 px-4 py-2 rounded-lg">Submitted</span>
                                             ) : (
                                                 <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded uppercase">Missing</span>
                                             )}

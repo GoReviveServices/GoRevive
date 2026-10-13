@@ -7,12 +7,13 @@ import api from '@/lib/apiClient';
 import toast from 'react-hot-toast';
 import ActionDropdown from './components/ActionDropdown';
 import OrderSummary from './components/OrderSummary';
+import SmartImage from '@/components/utils/UI/SmartImage';
 
 // Format Helper
 const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount).replace(/\s/g, '');
 
 export default function CartPage() {
-    const { cartItems, cartSubtotal, loading, removeFromCart, addMultipleToCart, removeMultipleFromCart } = useCart();
+    const { cartItems, loading, removeFromCart, addMultipleToCart, removeMultipleFromCart } = useCart();
 
     // Dropdown State
     const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -24,7 +25,6 @@ export default function CartPage() {
     const [availableWarehouseUnits, setAvailableWarehouseUnits] = useState([]);
     const [isFetchingUnits, setIsFetchingUnits] = useState(false);
 
-    console.log(cartItems)
 
     // Close dropdown when clicking outside
     const dropdownRef = useRef(null);
@@ -80,7 +80,7 @@ export default function CartPage() {
         setOpenDropdownId(null);
         const toastId = toast.loading("Checking warehouse availability...");
         try {
-            const response = await api.post('/products/details', { modelCode });
+            const response = await api.get('/products/details', { params: { model: modelCode } });
             const allUnits = response.data?.units || [];
 
             const cartIds = new Set(cartItems.map(i => i.product.id));
@@ -109,7 +109,7 @@ export default function CartPage() {
 
         if (mode === 'add') {
             try {
-                const response = await api.post('/products/details', { modelCode });
+                const response = await api.get('/products/details', { params: { model: modelCode } });
                 const allUnits = response.data?.units || [];
 
 
@@ -147,13 +147,13 @@ export default function CartPage() {
 
                                 {/* Group Header */}
                                 <div className="p-6 border-b border-gray-100 flex gap-6 items-center">
-                                    <div className="w-20 h-20  flex-shrink-0">
-                                        <img src={group.image} alt={group.model} className="w-full h-full object-contain mix-blend-multiply" />
+                                    <div className="relative w-20 h-20 flex-shrink-0">
+                                        <SmartImage src={group.image} alt={group.model} fill sizes="80px" className="object-contain mix-blend-multiply" />
 
                                     </div>
                                     <div className="flex-grow">
                                         <span className="text-xs font-black text-gray-400 uppercase tracking-widest">{group.brand}</span>
-                                        <h3 className="text-lg font-bold text-[#0B2136] leading-tight">{group.model}</h3>
+                                        <h2 className="text-lg font-bold text-[#0B2136] leading-tight">{group.model}</h2>
                                         <p className="text-sm font-semibold text-[#1B5E3B] mt-1">{group.items.length} Units Selected • {formatCurrency(group.groupTotal)}</p>
                                     </div>
 
@@ -228,39 +228,7 @@ export default function CartPage() {
                     </div>
 
                     {/* RIGHT: ORDER SUMMARY */}
-                    <OrderSummary cartItems={cartItems} cartSubtotal={cartSubtotal} formatCurrency={formatCurrency} />
-                    {/* <div className=" w-full">
-                        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm sticky top-24">
-                            <h2 className="text-lg font-bold text-[#0B2136] mb-6">Order Summary</h2>
-                            <div className="space-y-4 mb-6">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500 font-medium">Total Units</span>
-                                    <span className="font-bold text-[#0B2136]">{cartItems.length}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500 font-medium">Subtotal</span>
-                                    <span className="font-bold text-[#0B2136]">{formatCurrency(cartSubtotal)}</span>
-                                </div>
-                                {cartItems.length >= 10 && (
-                                    <div className="flex justify-between text-emerald-600">
-                                        <span className="font-bold">Bulk Discount (3%)</span>
-                                        <span className="font-bold">- {formatCurrency(cartSubtotal * 0.03)}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="border-t border-gray-100 pt-4 mb-8">
-                                <div className="flex justify-between items-end">
-                                    <span className="text-gray-900 font-bold">Total Request</span>
-                                    <span className="text-2xl font-black text-[#0B2136]">
-                                        {formatCurrency(cartItems.length >= 10 ? cartSubtotal * 0.97 : cartSubtotal)}
-                                    </span>
-                                </div>
-                            </div>
-                            <button onClick={() => { console.log(".....") }} disabled={cartItems?.length <= 4} className="w-full bg-[#0B2136] text-white font-bold py-4 rounded-xl hover:bg-[#1B5E3B] transition-colors shadow-md">
-                                Proceed to Checkout
-                            </button>
-                        </div>
-                    </div> */}
+                    <OrderSummary cartItems={cartItems} formatCurrency={formatCurrency} />
                 </div>
             </div>
 

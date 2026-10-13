@@ -1,4 +1,11 @@
 import React from 'react';
+import { pageMetadata } from '@/lib/site';
+
+export const metadata = pageMetadata({
+  title: "Disclaimer",
+  description: "Disclaimer for information, product listings and grading shown on the GoRevive website.",
+  path: "/disclaimer",
+});
 
 export default function DisclaimerPage() {
     const lastUpdated = "March 17, 2026";
@@ -51,7 +58,7 @@ export default function DisclaimerPage() {
               <span className="text-indigo-500 text-lg">02.</span> Product Condition
             </h2>
             <p>
-              All items are used/refurbished and sold "as-is". While we strive for accuracy in our grading process, we acknowledge that there might be errors. GoRevive assumes no responsibility for errors or omissions in the contents or the grading of the assets.
+              All items are used/refurbished and sold “as-is”. While we strive for accuracy in our grading process, we acknowledge that there might be errors. GoRevive assumes no responsibility for errors or omissions in the contents or the grading of the assets.
             </p>
           </section>
 

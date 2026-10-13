@@ -3,6 +3,12 @@
 import React from 'react';
 import { useAuth } from '@/components/utils/Context/AuthContext';
 import Link from 'next/link';
+import SmartImage from '@/components/utils/UI/SmartImage';
+import { productPath } from '@/lib/slug';
+import { withBrand } from '@/lib/site';
+
+const currencyFormatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+const formatCurrency = (amount) => currencyFormatter.format(amount).replace(/\s/g, '');
 
 // Grade -> color. Single source of truth so every place a grade appears
 // (image badge, text list) stays consistent.
@@ -13,16 +19,10 @@ const GRADE_COLORS = {
     D: '#B1401F',
 };
 
-export const ProductCard = ({ product }) => {
+export const ProductCard = React.memo(function ProductCard({ product, priority = false }) {
     const { isAuthenticated } = useAuth();
-
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0,
-        }).format(amount).replace(/\s/g, '');
-    };
+    const href = productPath(product);
+    const altText = `Refurbished ${withBrand(product.brand, product.model)}`;
 
     const hasDiscount = product.mrp > product.startingPrice;
     const discountPercent = hasDiscount ? Math.round(((product.mrp - product.startingPrice) / product.mrp) * 100) : 0;
@@ -34,16 +34,20 @@ export const ProductCard = ({ product }) => {
         <div className="group relative flex flex-row md:flex-col bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-[0_16px_40px_rgba(11,33,54,0.08)] hover:-translate-y-0.5 hover:border-gray-200 transition-all duration-300 h-full">
 
             <Link
-                href={`/products/${product.id}`}
+                href={href}
+                aria-label={product.model}
                 className="relative w-[38%] md:w-full aspect-square md:aspect-[4/3] bg-[#FAFAF9] flex-shrink-0 flex items-center justify-center p-5 md:p-6 border-r md:border-r-0 md:border-b border-gray-100 overflow-hidden"
             >
-                <img
-                    src={product.image}
-                    alt={product.model}
-                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-500 ease-out"
-                    loading="lazy"
-                    onError={(e) => { e.target.src = 'https://placehold.co/400x400/f3f4f6/a1a1aa?text=No+Image'; }}
-                />
+                <span className="relative block w-full h-full">
+                    <SmartImage
+                        src={product.image}
+                        alt={altText}
+                        fill
+                        sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 40vw"
+                        priority={priority}
+                        className="object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-500 ease-out"
+                    />
+                </span>
             </Link>
 
             <div className="flex flex-col flex-grow p-4 md:p-5 w-[62%] md:w-full">
@@ -59,7 +63,7 @@ export const ProductCard = ({ product }) => {
                     )}
                 </div>
 
-                <Link href={`/products/${product.id}`} className="block mb-2">
+                <Link href={href} className="block mb-2" tabIndex={-1}>
                     <h3 className="font-bold text-[#0B2136] text-[13.5px] md:text-[15px] leading-snug line-clamp-2 group-hover:text-[#1B5E3B] transition-colors">
                         {product.model}
                     </h3>
@@ -133,4 +137,4 @@ export const ProductCard = ({ product }) => {
             </div>
         </div>
     );
-};
+});

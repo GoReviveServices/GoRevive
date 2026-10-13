@@ -76,7 +76,7 @@ export const CompanyStats = () => {
                     {/* Left Column: The Narrative */}
                     <div className="w-full lg:w-5/12">
                         <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#061410] leading-[1.1] tracking-tight mb-6">
-                            India's trusted leader in <span className="text-[#1B5E3B] font-accent italic font-medium">IT lifecycle</span> management.
+                            India’s trusted leader in <span className="text-[#1B5E3B] font-accent italic font-medium">IT lifecycle</span> management.
                         </h2>
 
                         <p className="text-[17px] text-[#4A6355] leading-relaxed mb-8">

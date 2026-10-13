@@ -1,4 +1,7 @@
+import 'server-only';
 import axios from 'axios';
+
+const gatewayHttp = axios.create({ timeout: 20000 });
 
 /**
  * ==========================================
@@ -28,7 +31,7 @@ export async function createHdfcSession({ orderId, amount, customerId, phone, em
         };
 
 
-        const response = await axios.post(`${process.env.HDFC_BASE_URL}/session`, payload, {
+        const response = await gatewayHttp.post(`${process.env.HDFC_BASE_URL}/session`, payload, {
             headers: {
                 'Authorization': authHeader,
                 'x-merchantid': process.env.HDFC_MERCHANT_ID,
@@ -54,13 +57,13 @@ export async function createHdfcSession({ orderId, amount, customerId, phone, em
 
 /**
  * @param {String} orderId 
- * @returns {Object} { isPaid: boolean, status: string, fullData: Object }
+ * @returns {Object} { isPaid, status, amount, customerId, reference }
  */
 export async function verifyHdfcOrder(orderId) {
     try {
         const authHeader = `Basic ${Buffer.from(process.env.HDFC_API_KEY + ":").toString('base64')}`;
 
-        const response = await axios.get(`${process.env.HDFC_BASE_URL}/orders/${orderId}`, {
+        const response = await gatewayHttp.get(`${process.env.HDFC_BASE_URL}/orders/${orderId}`, {
             headers: {
                 'Authorization': authHeader,
                 'x-merchantid': process.env.HDFC_MERCHANT_ID,
@@ -73,7 +76,9 @@ export async function verifyHdfcOrder(orderId) {
         return {
             isPaid: data.status === "CHARGED",
             status: data.status,
-            fullData: data
+            amount: Number(data.amount),
+            customerId: data.customer_id,
+            reference: data.txn_id || data.id || orderId,
         };
     } catch (error) {
         throw new Error(error.response?.data?.message || "Failed to verify HDFC order status");
@@ -95,7 +100,7 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
     try {
         const payload = {
             order_id: orderId,
-            order_amount: Number(amount).toFixed(2),
+            order_amount: Number(Number(amount).toFixed(2)),
             order_currency: "INR",
             customer_details: {
                 customer_id: customerId,
@@ -111,7 +116,7 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
             },
         };
 
-        const response = await axios.post(`${process.env.CASHFREE_BASE_URL}/orders`, payload, {
+        const response = await gatewayHttp.post(`${process.env.CASHFREE_BASE_URL}/orders`, payload, {
             headers: {
                 'x-client-id': process.env.CASHFREE_APP_ID,
                 'x-client-secret': process.env.CASHFREE_SECRET_KEY,
@@ -138,7 +143,7 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
  */
 export async function verifyCashfreeOrder(orderId) {
     try {
-        const response = await axios.get(`${process.env.CASHFREE_BASE_URL}/orders/${orderId}`, {
+        const response = await gatewayHttp.get(`${process.env.CASHFREE_BASE_URL}/orders/${orderId}`, {
             headers: {
                 'x-client-id': process.env.CASHFREE_APP_ID,
                 'x-client-secret': process.env.CASHFREE_SECRET_KEY,
@@ -152,7 +157,9 @@ export async function verifyCashfreeOrder(orderId) {
         return {
             isPaid: data.order_status === "PAID",
             status: data.order_status,
-            fullData: data
+            amount: Number(data.order_amount),
+            customerId: data.customer_details?.customer_id,
+            reference: data.cf_order_id || orderId,
         };
     } catch (error) {
         throw new Error(error.response?.data?.message || "Failed to verify Cashfree order status");

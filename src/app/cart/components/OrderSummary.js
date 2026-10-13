@@ -1,9 +1,11 @@
 import { useRouter } from 'next/navigation';
 import React from 'react';
+import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
 
-export default function OrderSummary({ cartItems = [], cartSubtotal = 0, formatCurrency }) {
+export default function OrderSummary({ cartItems = [], formatCurrency }) {
   const router = useRouter();
-  const isCheckoutDisabled = !cartItems || cartItems.length < 5;
+  const totals = computeOrderTotals(cartItems);
+  const isCheckoutDisabled = totals.units < MIN_ORDER_UNITS;
 
   return (
     <div className="w-full">
@@ -13,18 +15,18 @@ export default function OrderSummary({ cartItems = [], cartSubtotal = 0, formatC
         <div className="space-y-4 mb-6">
           <div className="flex justify-between">
             <span className="text-gray-500 font-medium">Total Units</span>
-            <span className="font-bold text-[#0B2136]">{cartItems.length}</span>
+            <span className="font-bold text-[#0B2136]">{totals.units}</span>
           </div>
           
           <div className="flex justify-between">
             <span className="text-gray-500 font-medium">Subtotal</span>
-            <span className="font-bold text-[#0B2136]">{formatCurrency(cartSubtotal)}</span>
+            <span className="font-bold text-[#0B2136]">{formatCurrency(totals.subtotal)}</span>
           </div>
           
-          {cartItems.length >= 10 && (
+          {totals.discount > 0 && (
             <div className="flex justify-between text-emerald-600">
               <span className="font-bold">Bulk Discount (3%)</span>
-              <span className="font-bold">- {formatCurrency(cartSubtotal * 0.03)}</span>
+              <span className="font-bold">- {formatCurrency(totals.discount)}</span>
             </div>
           )}
         </div>
@@ -33,7 +35,7 @@ export default function OrderSummary({ cartItems = [], cartSubtotal = 0, formatC
           <div className="flex justify-between items-end">
             <span className="text-gray-900 font-bold">Total Request</span>
             <span className="text-2xl font-black text-[#0B2136]">
-              {formatCurrency(cartItems.length >= 10 ? cartSubtotal * 0.97 : cartSubtotal)}
+              {formatCurrency(totals.total)}
             </span>
           </div>
         </div>
@@ -43,7 +45,7 @@ export default function OrderSummary({ cartItems = [], cartSubtotal = 0, formatC
           disabled={isCheckoutDisabled} 
           className="w-full bg-[#0B2136] text-white cursor-pointer font-bold py-4 rounded-xl transition-all shadow-md hover:bg-[#1B5E3B] disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
         >
-          {isCheckoutDisabled ? "Minimum 5 Items Required" : "Proceed to Checkout"}
+          {isCheckoutDisabled ? `Minimum ${MIN_ORDER_UNITS} Items Required` : "Proceed to Checkout"}
         </button>
       </div>
     </div>
