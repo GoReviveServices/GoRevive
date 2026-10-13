@@ -39,19 +39,19 @@ const playfair = Playfair_Display({
 });
 
 const DEFAULT_DESCRIPTION =
-  "Buy certified refurbished laptops, desktops, MacBooks and monitors in bulk, and recycle IT assets securely. CPCB-authorised, ISO 9001:2015 and NIST 800-88 data erasure. GoRevive, New Delhi.";
+  "Buy certified pre-owned laptops, desktops, MacBooks and monitors in bulk, and recycle IT assets securely. CPCB-authorised, ISO 9001:2015 and NIST 800-88 data erasure. GoRevive, New Delhi.";
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "GoRevive – Certified Refurbished Laptops & IT Asset Disposal in India",
+    default: "GoRevive – Certified Pre-Owned Laptops & IT Asset Disposal in India",
     template: "%s | GoRevive",
   },
   description: DEFAULT_DESCRIPTION,
   applicationName: SITE_NAME,
   keywords: [
-    "refurbished laptops", "refurbished laptops in bulk", "refurbished desktops", "refurbished MacBook",
-    "IT asset disposition", "ITAD India", "e-waste recycling Delhi", "corporate laptop buyback", "B2B refurbished IT hardware",
+    "pre-owned laptops", "pre-owned laptops in bulk", "pre-owned desktops", "pre-owned MacBook",
+    "IT asset disposition", "ITAD India", "e-waste recycling Delhi", "corporate laptop buyback", "B2B pre-owned IT hardware",
   ],
   // No canonical here: it would be inherited by every page. Each page sets its own.
   icons: { icon: "/favicon.ico", apple: "/favicon.ico" },
@@ -59,13 +59,13 @@ export const metadata = {
     type: "website",
     siteName: SITE_NAME,
     locale: "en_IN",
-    title: "GoRevive – Certified Refurbished IT Hardware & IT Asset Disposal",
+    title: "GoRevive – Certified Pre-Owned IT Hardware & IT Asset Disposal",
     description: DEFAULT_DESCRIPTION,
     // The image itself comes from app/opengraph-image.js.
   },
   twitter: {
     card: "summary_large_image",
-    title: "GoRevive – Certified Refurbished IT Hardware & IT Asset Disposal",
+    title: "GoRevive – Certified Pre-Owned IT Hardware & IT Asset Disposal",
     description: DEFAULT_DESCRIPTION,
   },
   robots: {

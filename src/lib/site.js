@@ -26,7 +26,7 @@ export const BASE_OPEN_GRAPH = { type: 'website', siteName: SITE_NAME, locale: '
 
 // The generated share image (app/opengraph-image.js). Listed explicitly
 // because a page-level `openGraph` would otherwise drop it.
-export const DEFAULT_OG_IMAGE = { url: '/opengraph-image', width: 1200, height: 630, alt: 'GoRevive – certified refurbished IT hardware' };
+export const DEFAULT_OG_IMAGE = { url: '/opengraph-image', width: 1200, height: 630, alt: 'GoRevive – certified pre-owned IT hardware' };
 
 /** "Laptop" -> "Laptops", "Tablets" -> "Tablets" (for titles and copy). */
 export const pluralize = (word = '') => (/s$/i.test(word) ? word : `${word}s`);

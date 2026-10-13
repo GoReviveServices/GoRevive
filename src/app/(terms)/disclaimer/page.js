@@ -58,7 +58,7 @@ export default function DisclaimerPage() {
               <span className="text-indigo-500 text-lg">02.</span> Product Condition
             </h2>
             <p>
-              All items are used/refurbished and sold “as-is”. While we strive for accuracy in our grading process, we acknowledge that there might be errors. GoRevive assumes no responsibility for errors or omissions in the contents or the grading of the assets.
+              All items are pre-owned and sold “as-is”. While we strive for accuracy in our grading process, we acknowledge that there might be errors. GoRevive assumes no responsibility for errors or omissions in the contents or the grading of the assets.
             </p>
           </section>
 

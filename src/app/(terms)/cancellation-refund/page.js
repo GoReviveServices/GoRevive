@@ -3,7 +3,7 @@ import { pageMetadata } from '@/lib/site';
 
 export const metadata = pageMetadata({
   title: "Cancellation & Refund Policy",
-  description: "Cancel a GoRevive order and get a refund: eligibility, timelines and how refunds are paid for bulk refurbished IT hardware orders.",
+  description: "Cancel a GoRevive order and get a refund: eligibility, timelines and how refunds are paid for bulk pre-owned IT hardware orders.",
   path: "/cancellation-refund",
 });
 

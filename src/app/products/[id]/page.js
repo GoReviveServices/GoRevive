@@ -3,6 +3,7 @@ import { findBundle, getProductBundles, getUnitsForModel } from '@/lib/server/in
 import { SITE_URL, SITE_NAME, BASE_OPEN_GRAPH, DEFAULT_OG_IMAGE, withBrand } from '@/lib/site';
 import JsonLd from '@/components/utils/SEO/JsonLd';
 import ProductDetailClient from './ProductDetailClient';
+import { faqSchema } from './productFaq';
 
 // Re-render each product page at most once a minute (ISR).
 export const revalidate = 60;
@@ -10,7 +11,7 @@ export const revalidate = 60;
 const describe = (p) => {
     const specs = [p.baseSpecs?.ram, p.baseSpecs?.storage].filter(Boolean).join(' / ');
     const grades = p.availableConditions?.length ? ` Grades ${p.availableConditions.join(', ')}.` : '';
-    return `Buy certified refurbished ${withBrand(p.brand, p.model)}${specs ? ` (${specs})` : ''} in bulk from GoRevive. Quality-checked, graded and warranty-backed IT hardware at B2B prices.${grades}`
+    return `Buy certified pre-owned ${withBrand(p.brand, p.model)}${specs ? ` (${specs})` : ''} in bulk from GoRevive. Quality-checked, graded and warranty-backed IT hardware at B2B prices.${grades}`
         .replace(/\s+/g, ' ')
         .trim();
 };
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }) {
     const product = await findBundle(id).catch(() => null);
     if (!product) return { title: 'Product not found', robots: { index: false } };
 
-    const title = `Refurbished ${withBrand(product.brand, product.model)}`.replace(/\s+/g, ' ');
+    const title = `Pre-Owned ${withBrand(product.brand, product.model)}`.replace(/\s+/g, ' ');
     const url = `/products/${product.slug}`;
     return {
         title,
@@ -102,7 +103,7 @@ export default async function ProductPage({ params }) {
 
     return (
         <>
-            <JsonLd data={[productSchema, breadcrumbSchema]} />
+            <JsonLd data={[productSchema, breadcrumbSchema, faqSchema()]} />
             <ProductDetailClient product={product} initialUnits={units} related={related} />
         </>
     );

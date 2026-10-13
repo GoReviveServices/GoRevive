@@ -172,7 +172,7 @@ export default function GoReviveGrading() {
         {/* Header Section */}
         <div className="text-center max-w-4xl mx-auto mb-10">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
-            Refurbished Device Grading Parameters
+            Pre-Owned Device Grading Parameters
           </h1>
           <p className="text-lg text-slate-500">
             Total transparency across our entire catalog. Select a device category below to see exactly what to expect from every grade tier.

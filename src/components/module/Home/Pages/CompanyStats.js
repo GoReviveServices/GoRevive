@@ -80,7 +80,7 @@ export const CompanyStats = () => {
                         </h2>
 
                         <p className="text-[17px] text-[#4A6355] leading-relaxed mb-8">
-                            GoRevive, a premium brand under the umbrella of Connect Residuary Private Limited, has emerged as a trusted leader in the preowned IT asset space. With a sharp focus on performance, sustainability, and value, we specialize in delivering enterprise-grade, certified pre-owned IT infrastructure exclusively tailored for the B2B segment.
+                            GoRevive, a premium brand under the umbrella of Connect Residuary Private Limited, has emerged as a trusted leader in the pre-owned IT asset space. With a sharp focus on performance, sustainability, and value, we specialize in delivering enterprise-grade, certified pre-owned IT infrastructure exclusively tailored for the B2B segment.
                         </p>
 
                         {/* Quick Trust Stats placed below the text */}

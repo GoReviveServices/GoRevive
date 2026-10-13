@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { phpPost, isTrue } from './php';
 import { imageUrl } from '@/lib/site';
 import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
+import { warrantyPrice, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
 
 // ---------------------------------------------------------------------------
 // Cart, wallet and address — always read from PHP for the signed-in user.
@@ -55,9 +56,10 @@ export async function resolveAddress(user, addressId) {
 }
 
 /** Stable fingerprint of what is being bought, so the cart cannot change after payment starts. */
-export function cartFingerprint(items) {
+export function cartFingerprint(items, warrantyIds = []) {
+    const withWarranty = new Set(warrantyIds.map(String));
     const key = items
-        .map((i) => `${i.product.id}:${i.product.price}:${i.quantity}`)
+        .map((i) => `${i.product.id}:${i.product.price}:${i.quantity}:${withWarranty.has(String(i.product.id)) ? 'W' : ''}`)
         .sort()
         .join('|');
     return createHash('sha256').update(key).digest('hex');
@@ -78,7 +80,7 @@ const istTimestamp = (d = new Date()) => {
  * Prices the signed-in user's cart on the server and creates the PO in PHP.
  * Returns the order snapshot that payment and invoicing are checked against.
  */
-export async function createOrder(user, { addressId, gateway }) {
+export async function createOrder(user, { addressId, gateway, warrantyIds = [] }) {
     const [items, walletBalance, address] = await Promise.all([
         getServerCart(user.crm_party_code),
         getWalletBalance(user.crm_party_code),
@@ -92,7 +94,10 @@ export async function createOrder(user, { addressId, gateway }) {
     if (unavailable.length) throw new OrderError('Some items in your cart are no longer available.', { unavailable: unavailable.map((i) => i.product.id) });
     if (items.some((i) => !(i.product.price > 0))) throw new OrderError('An item in your cart has no valid price. Please remove and re-add it.');
 
-    const totals = computeOrderTotals(items, walletBalance);
+    // Extended warranty: only for units really in this cart; price set here.
+    const cartIds = new Set(items.map((i) => String(i.product.id)));
+    const warranty = [...new Set((Array.isArray(warrantyIds) ? warrantyIds : []).map(String))].filter((id) => cartIds.has(id));
+    const totals = computeOrderTotals(items, walletBalance, warranty);
     if (totals.units < MIN_ORDER_UNITS) throw new OrderError(`Minimum order is ${MIN_ORDER_UNITS} units.`);
     const orderId = `GR_${user.crm_party_code}_${Date.now()}`;
     const orderDate = istTimestamp();
@@ -109,6 +114,7 @@ export async function createOrder(user, { addressId, gateway }) {
                     item_category: i.product.condition || i.product.category || 'Unknown',
                     item_name: i.product.name || '',
                     item_price: i.product.price,
+                    ...warrantyFields(i, warranty),
                 })),
                 order_no: orderId,
                 order_date: orderDate,
@@ -116,7 +122,10 @@ export async function createOrder(user, { addressId, gateway }) {
                 tot_amount: totals.total,
                 payment_mode: paymentMode,
                 cod_charges: '',
-                payment_remark: 'B2B Website Order',
+                ...warrantyTotals(totals),
+                payment_remark: totals.warrantyUnits
+                    ? `B2B Website Order. Extended warranty (${EXT_WARRANTY_MONTHS} months) on ${totals.warrantyUnits} unit(s): Rs ${totals.warranty}`
+                    : 'B2B Website Order',
                 crm_party_code: user.crm_party_code,
                 party_name: user.cust_name,
                 party_mobile: user.mobile,
@@ -141,7 +150,10 @@ export async function createOrder(user, { addressId, gateway }) {
         total: totals.total,
         walletAmount: totals.walletAmount,
         payable: totals.payable,
-        fingerprint: cartFingerprint(items),
+        warrantyIds: warranty,
+        warrantyAmount: totals.warranty,
+        warrantyUnits: totals.warrantyUnits,
+        fingerprint: cartFingerprint(items, warranty),
         address,
     };
 }
@@ -152,7 +164,8 @@ export async function createOrder(user, { addressId, gateway }) {
  */
 export async function completeOrder(user, order, paymentReference) {
     const items = await getServerCart(user.crm_party_code);
-    if (cartFingerprint(items) !== order.fingerprint) {
+    const warranty = order.warrantyIds || [];
+    if (cartFingerprint(items, warranty) !== order.fingerprint) {
         throw new OrderError('Your cart changed after payment started. Our team will contact you to reconcile this order.');
     }
 
@@ -170,9 +183,7 @@ export async function completeOrder(user, order, paymentReference) {
         payment_mode: order.gateway,
         wallet_amount: order.walletAmount,
         cashfree_amount: order.payable,
-        extra_charges: '',
-        extra_per: 0,
-        extra_amt: 0,
+        ...warrantyTotals({ warranty: order.warrantyAmount || 0, warrantyUnits: order.warrantyUnits || 0 }),
         crm_party_code: user.crm_party_code,
         payment_reference: paymentReference || order.orderId,
         payment_status: 'Success',
@@ -207,6 +218,7 @@ export async function completeOrder(user, order, paymentReference) {
             igst_amount: '0.00',
             price: String(i.product.price),
             item_total: String(i.product.price * i.quantity),
+            ...warrantyFields(i, warranty),
         })),
     };
 
@@ -215,6 +227,28 @@ export async function completeOrder(user, order, paymentReference) {
         throw new OrderError(res?.message || res?.response?.message || 'Failed to create invoice.');
     }
     return res;
+}
+
+// Extended warranty on the PO/invoice. The order total already includes it.
+// The totals use the invoice's existing extra-charge fields; the per-line
+// fields tell the backend which units are covered. Confirm with the PHP team
+// that invoice_creation.php and POCreate.php store and print these.
+function warrantyTotals({ warranty, warrantyUnits }) {
+    return warranty > 0
+        ? {
+            extra_charges: `Extended warranty ${EXT_WARRANTY_MONTHS} months x ${warrantyUnits}`,
+            extra_per: EXT_WARRANTY_RATE * 100,
+            extra_amt: warranty,
+        }
+        : { extra_charges: '', extra_per: 0, extra_amt: 0 };
+}
+
+function warrantyFields(item, warrantyIds) {
+    const covered = warrantyIds.includes(String(item.product.id));
+    return {
+        ext_warranty_months: covered ? String(EXT_WARRANTY_MONTHS) : '0',
+        ext_warranty_amount: covered ? String(warrantyPrice(item.product.price) * item.quantity) : '0',
+    };
 }
 
 export class OrderError extends Error {

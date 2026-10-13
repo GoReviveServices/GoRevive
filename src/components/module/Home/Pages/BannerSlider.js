@@ -51,7 +51,7 @@ export const BannerSlider = ({ initialBanners = [] }) => {
     const slides = banners.map((e, i) => ({
         id: i,
         image: e.bannerUrl,
-        alt: e.title || e.banner_title || e.banner_name || `GoRevive offer on refurbished IT hardware – slide ${i + 1}`,
+        alt: e.title || e.banner_title || e.banner_name || `GoRevive offer on pre-owned IT hardware – slide ${i + 1}`,
     }));
 
     const slideCount = slides.length;

@@ -24,13 +24,15 @@ export async function POST(request) {
     }
 
     try {
-        const { addressId, gateway: rawGateway = 'CASHFREE', option = '' } = await request.json();
+        const { addressId, gateway: rawGateway = 'CASHFREE', option = '', warrantyIds = [] } = await request.json();
         const gateway = String(rawGateway).toUpperCase();
         if (!GATEWAYS.includes(gateway)) {
             return NextResponse.json({ success: false, message: 'Unsupported payment method.' }, { status: 400 });
         }
 
-        const order = await createOrder(user, { addressId, gateway });
+        // warrantyIds is only the buyer's choice; createOrder checks each id
+        // against the cart and prices the warranty itself.
+        const order = await createOrder(user, { addressId, gateway, warrantyIds: Array.isArray(warrantyIds) ? warrantyIds.slice(0, 500) : [] });
 
         // Wallet covers everything: no gateway, finish now.
         if (order.payable === 0) {

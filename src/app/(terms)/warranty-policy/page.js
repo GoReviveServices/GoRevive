@@ -3,7 +3,7 @@ import { pageMetadata } from '@/lib/site';
 
 export const metadata = pageMetadata({
   title: "Warranty Policy",
-  description: "Warranty coverage for GoRevive certified refurbished laptops, desktops, MacBooks and monitors \u2014 what is covered and how to raise a claim.",
+  description: "Warranty coverage for GoRevive certified pre-owned laptops, desktops, MacBooks and monitors — what is covered and how to raise a claim.",
   path: "/warranty-policy",
 });
 

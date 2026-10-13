@@ -30,6 +30,12 @@ function SidebarSummary({
                             <span className="font-bold">- {formatCurrency(totals.discount)}</span>
                         </div>
                     )}
+                    {totals.warranty > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-500 font-medium">Extended Warranty ({totals.warrantyUnits} {totals.warrantyUnits === 1 ? 'unit' : 'units'})</span>
+                            <span className="font-bold text-[#0B2136]">+ {formatCurrency(totals.warranty)}</span>
+                        </div>
+                    )}
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-500 font-medium">Shipping</span>
                         <span className="font-bold text-[#1B5E3B]">Calculated Post-Approval</span>

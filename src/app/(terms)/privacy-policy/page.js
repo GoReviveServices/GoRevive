@@ -3,7 +3,7 @@ import { pageMetadata } from '@/lib/site';
 
 export const metadata = pageMetadata({
   title: "Privacy Policy",
-  description: "How GoRevive collects, uses and protects your personal and business data when you buy refurbished IT hardware or use our IT asset disposal services.",
+  description: "How GoRevive collects, uses and protects your personal and business data when you buy pre-owned IT hardware or use our IT asset disposal services.",
   path: "/privacy-policy",
 });
 

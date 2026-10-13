@@ -137,7 +137,7 @@ export const BusinessValueSection = () => {
                                     </div>
                                 </div>
 
-                                {/* Refurbished Laptop */}
+                                {/* Pre-Owned Laptop */}
                                 <div className="relative">
                                     <div className="absolute -top-8 left-0 bg-[#1B5E3B] text-white text-[11px] uppercase font-bold tracking-wider px-3 py-1 rounded-md shadow-sm">
                                         The GoRevive Choice

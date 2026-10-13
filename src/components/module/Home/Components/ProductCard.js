@@ -22,7 +22,7 @@ const GRADE_COLORS = {
 export const ProductCard = React.memo(function ProductCard({ product, priority = false }) {
     const { isAuthenticated } = useAuth();
     const href = productPath(product);
-    const altText = `Refurbished ${withBrand(product.brand, product.model)}`;
+    const altText = `Pre-Owned ${withBrand(product.brand, product.model)}`;
 
     const hasDiscount = product.mrp > product.startingPrice;
     const discountPercent = hasDiscount ? Math.round(((product.mrp - product.startingPrice) / product.mrp) * 100) : 0;

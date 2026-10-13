@@ -49,7 +49,7 @@ export default function AboutUs() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Our Mission</h2>
             <p className="text-slate-600 leading-relaxed">
-              To provide businesses and consumers with reliable, affordable, and high-quality refurbished IT equipment, while promoting environmental sustainability through the reduction of e-waste.
+              To provide businesses and consumers with reliable, affordable, and high-quality pre-owned IT equipment, while promoting environmental sustainability through the reduction of e-waste.
             </p>
           </div>
           

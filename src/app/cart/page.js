@@ -8,12 +8,13 @@ import toast from 'react-hot-toast';
 import ActionDropdown from './components/ActionDropdown';
 import OrderSummary from './components/OrderSummary';
 import SmartImage from '@/components/utils/UI/SmartImage';
+import { warrantyPrice, EXT_WARRANTY_MONTHS } from '@/lib/warranty';
 
 // Format Helper
 const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount).replace(/\s/g, '');
 
 export default function CartPage() {
-    const { cartItems, loading, removeFromCart, addMultipleToCart, removeMultipleFromCart } = useCart();
+    const { cartItems, loading, removeFromCart, addMultipleToCart, removeMultipleFromCart, warrantyIds, toggleWarranty } = useCart();
 
     // Dropdown State
     const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -194,6 +195,17 @@ export default function CartPage() {
                                                         <p className="text-xs font-semibold text-gray-500 mt-0.5">
                                                             Grade {item.product.condition || item.product.category}
                                                         </p>
+                                                        {isAvailable && (
+                                                            <label className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="accent-[#1B5E3B] w-3.5 h-3.5"
+                                                                    checked={warrantyIds.includes(String(item.product.id))}
+                                                                    onChange={(e) => toggleWarranty(item.product.id, e.target.checked)}
+                                                                />
+                                                                +{EXT_WARRANTY_MONTHS}M warranty {formatCurrency(warrantyPrice(item.product.price))}
+                                                            </label>
+                                                        )}
                                                     </div>
 
                                                     <div className="text-right flex flex-col items-end gap-2">
@@ -228,7 +240,7 @@ export default function CartPage() {
                     </div>
 
                     {/* RIGHT: ORDER SUMMARY */}
-                    <OrderSummary cartItems={cartItems} formatCurrency={formatCurrency} />
+                    <OrderSummary formatCurrency={formatCurrency} />
                 </div>
             </div>
 

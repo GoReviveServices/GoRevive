@@ -22,7 +22,7 @@ const CatogeryImage = ({ type, className = 'w-6 h-6' }) => {
     <img 
       src={imageUrl} 
       className={className} 
-      alt={type ? `Refurbished ${type}` : ''}
+      alt={type ? `Pre-Owned ${type}` : ''}
       loading="lazy"
     />
   );

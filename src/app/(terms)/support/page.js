@@ -2,7 +2,7 @@ import { pageMetadata } from '@/lib/site';
 
 export const metadata = pageMetadata({
   title: "Contact & Support",
-  description: "Contact GoRevive for bulk refurbished laptop orders, warranty claims and IT asset disposal. Call 011 4275 8155 or email support@gorevive.in.",
+  description: "Contact GoRevive for bulk pre-owned laptop orders, warranty claims and IT asset disposal. Call 011 4275 8155 or email support@gorevive.in.",
   path: "/support",
 });
 

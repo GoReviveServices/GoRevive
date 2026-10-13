@@ -26,7 +26,7 @@ export const Footer = async () => {
           <div className="space-y-4 col-span-2 md:col-span-1 lg:col-span-1">
             <p className="text-2xl font-bold">GoRevive</p>
             <p className="text-gray-400">
-              Your trusted partner for high-quality refurbished IT assets.
+              Your trusted partner for high-quality pre-owned IT assets.
             </p>
             <div className="space-y-2 text-gray-300 text-sm">
                 <p>Second Floor, D-161, Okhla Phase I, Okhla Industrial Estate</p>
@@ -41,7 +41,7 @@ export const Footer = async () => {
               {categories.map(category => (
                 <li key={category}>
                   <Link href={`/products?category=${encodeURIComponent(category)}`} className="text-gray-400 hover:text-white transition-colors duration-200">
-                    Refurbished {category}
+                    Pre-Owned {category}
                   </Link>
                 </li>
               ))}

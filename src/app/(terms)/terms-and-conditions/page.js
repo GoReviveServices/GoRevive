@@ -3,7 +3,7 @@ import { pageMetadata } from '@/lib/site';
 
 export const metadata = pageMetadata({
   title: "Terms & Conditions",
-  description: "Terms and conditions for buying refurbished IT hardware and using GoRevive's B2B portal and IT asset disposal services.",
+  description: "Terms and conditions for buying pre-owned IT hardware and using GoRevive's B2B portal and IT asset disposal services.",
   path: "/terms-and-conditions",
 });
 
@@ -80,7 +80,7 @@ export default function TermsAndConditionsPage() {
               <span className="text-indigo-500 text-lg">05.</span> Products and Services
             </h2>
             <p>
-              All products sold on this website are refurbished, second-hand, or used unless explicitly stated otherwise. All products are sold on an <strong className="text-slate-900">“AS-IS, WHERE-IS”</strong> basis.
+              All products sold on this website are pre-owned, second-hand, or used unless explicitly stated otherwise. All products are sold on an <strong className="text-slate-900">“AS-IS, WHERE-IS”</strong> basis.
             </p>
           </section>
 

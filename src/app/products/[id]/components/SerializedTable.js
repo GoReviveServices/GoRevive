@@ -15,7 +15,7 @@ const formatCurrency = (amount) =>
         maximumFractionDigits: 0
     }).format(amount).replace(/\s/g, '');
 
-export default function SerializedTable({ matchingUnits }) {
+export default function SerializedTable({ matchingUnits, withWarranty = false }) {
     const router = useRouter();
     const { isAuthenticated } = useAuth();
     const { addToCart, cartItems } = useCart();
@@ -25,7 +25,7 @@ export default function SerializedTable({ matchingUnits }) {
     const handleAddToCart = async (unit) => {
         setAddingToCart(unit.id);
         try {
-            await addToCart(unit);
+            await addToCart(unit, { warranty: withWarranty });
         } finally {
             setAddingToCart(null);
         }
@@ -46,8 +46,8 @@ export default function SerializedTable({ matchingUnits }) {
             {/* Enhanced Header Area */}
             <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-50 rounded-lg">
-                        <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <div className="p-2 bg-[#F0FAF5] rounded-lg">
+                        <svg className="w-5 h-5 text-[#1B5E3B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
                     </div>
@@ -101,8 +101,8 @@ export default function SerializedTable({ matchingUnits }) {
                     {/* Enhanced Overlay */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm p-6 text-center">
                         <div className="bg-white/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-gray-200/50 max-w-sm">
-                            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg className="w-8 h-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <div className="w-16 h-16 bg-[#F0FAF5] rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-8 h-8 text-[#1B5E3B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                             </div>
@@ -110,7 +110,7 @@ export default function SerializedTable({ matchingUnits }) {
                             <p className="text-sm text-gray-600 mb-6">Login to view serial numbers and wholesale pricing</p>
                             <button
                                 onClick={() => router.push('/login')}
-                                className="group w-full flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm font-semibold uppercase tracking-wide px-8 py-3.5 rounded-xl shadow-lg hover:bg-indigo-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2"
+                                className="group w-full flex items-center justify-center gap-2 bg-[#0B2136] text-white text-sm font-semibold uppercase tracking-wide px-8 py-3.5 rounded-xl shadow-lg hover:bg-[#1B5E3B] transition-all duration-200 ease-in-out hover:-translate-y-0.5 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#1B5E3B] focus:ring-offset-2"
                             >
                                 <svg className="w-4 h-4 text-white/80 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />

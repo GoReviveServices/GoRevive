@@ -94,7 +94,7 @@ export const ITADCapabilitiesSection = () => {
                 </div>
                 
                 {/* Background Image / Gradient */}
-                <div className="absolute bg-[#ffffff20] left-0 -bottom-28 bg-[url('/images/refurbished-it-assets-background.webp')] z-[-1] bg-cover bg-bottom w-full h-full">
+                <div className="absolute bg-[#ffffff20] left-0 -bottom-28 bg-[url('/images/pre-owned-it-assets-background.webp')] z-[-1] bg-cover bg-bottom w-full h-full">
                     <div className="absolute bottom-0 w-full h-[300px] bg-gradient-to-t from-white to-transparent"></div>
                 </div>
 

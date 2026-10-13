@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 
 // Default share image (og:image / twitter:image) for every page that doesn't
 // set its own. Product pages use the product photo instead.
-export const alt = 'GoRevive – Certified refurbished IT hardware and secure IT asset disposal';
+export const alt = 'GoRevive – Certified pre-owned IT hardware and secure IT asset disposal';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -28,7 +28,7 @@ export default function OpengraphImage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <div style={{ fontSize: 68, fontWeight: 800, lineHeight: 1.08, letterSpacing: -1 }}>
-                        Certified Refurbished IT Hardware, in Bulk
+                        Certified Pre-Owned IT Hardware, in Bulk
                     </div>
                     <div style={{ fontSize: 30, color: '#D6F0E2' }}>
                         Laptops · Desktops · MacBooks · Monitors · Secure IT Asset Disposal

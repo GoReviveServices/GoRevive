@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/components/utils/Context/AuthContext';
 import api from '@/lib/apiClient';
 import { computeOrderTotals } from '@/lib/pricing';
+import { useWarrantyIds, setWarranty } from '@/lib/warrantyStore';
 
 const CartContext = createContext(undefined);
 
@@ -17,9 +18,20 @@ export const CartProvider = ({ children }) => {
     const { user, isAuthenticated, isInitializing } = useAuth();
     const userCode = user?.crm_party_code;
 
+    // Extended-warranty choices, limited to units actually in the cart.
+    const savedWarrantyIds = useWarrantyIds(userCode);
+    const warrantyIds = useMemo(() => {
+        const inCart = new Set(cartItems.map(i => String(i.product.id)));
+        return savedWarrantyIds.filter(id => inCart.has(id));
+    }, [savedWarrantyIds, cartItems]);
+
+    const toggleWarranty = useCallback((unitId, enabled) => {
+        setWarranty(userCode, [idOf(unitId)], enabled ?? !warrantyIds.includes(idOf(unitId)));
+    }, [userCode, warrantyIds]);
+
     // Display totals. The amount actually charged is recalculated on the server
     // with the same function (lib/pricing.js).
-    const totals = useMemo(() => computeOrderTotals(cartItems), [cartItems]);
+    const totals = useMemo(() => computeOrderTotals(cartItems, 0, warrantyIds), [cartItems, warrantyIds]);
 
     const fetchServerCart = useCallback(async () => {
         if (!userCode) {
@@ -52,7 +64,7 @@ export const CartProvider = ({ children }) => {
         return data;
     }, [fetchServerCart]);
 
-    const addToCart = useCallback(async (product) => {
+    const addToCart = useCallback(async (product, { warranty = false } = {}) => {
         if (!isAuthenticated) {
             toast.error("Please log in to add items to your cart.");
             return;
@@ -62,16 +74,19 @@ export const CartProvider = ({ children }) => {
             toast.error("This specific unit is already in your cart.");
             return;
         }
+        // Record the warranty choice first; it only counts once the unit is in the cart.
+        setWarranty(userCode, [id], warranty);
         return toast.promise(updateCart([id], 'P'), {
             loading: 'Allocating unit...',
             success: (data) => data?.message || 'Added to order!',
             error: (err) => err.response?.data?.message || err.message || 'Failed to allocate unit.',
         }).catch(() => {}); // error already shown by the toast
-    }, [cartItems, isAuthenticated, updateCart]);
+    }, [cartItems, isAuthenticated, updateCart, userCode]);
 
-    const addMultipleToCart = useCallback(async (productsArray) => {
+    const addMultipleToCart = useCallback(async (productsArray, { warranty = false } = {}) => {
         if (!isAuthenticated) return toast.error("Please log in.");
         const ids = productsArray.map(idOf);
+        setWarranty(userCode, ids, warranty);
         const toastId = toast.loading(`Allocating ${ids.length} units...`);
         try {
             await updateCart(ids, 'P');
@@ -79,7 +94,7 @@ export const CartProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.response?.data?.message || "Failed to allocate some units", { id: toastId });
         }
-    }, [isAuthenticated, updateCart]);
+    }, [isAuthenticated, updateCart, userCode]);
 
     const removeMultipleFromCart = useCallback(async (productIdsArray) => {
         if (!isAuthenticated) return;
@@ -124,6 +139,8 @@ export const CartProvider = ({ children }) => {
         cartCount: totals.units,
         cartSubtotal: totals.subtotal,
         cartTotals: totals,
+        warrantyIds,
+        toggleWarranty,
         loading,
         refreshCart: fetchServerCart,
         addToCart,
@@ -132,7 +149,7 @@ export const CartProvider = ({ children }) => {
         addMultipleToCart,
         removeMultipleFromCart,
         clearCart,
-    }), [cartItems, totals, loading, fetchServerCart, addToCart, removeFromCart, decrementCartQuantity, addMultipleToCart, removeMultipleFromCart, clearCart]);
+    }), [cartItems, totals, warrantyIds, toggleWarranty, loading, fetchServerCart, addToCart, removeFromCart, decrementCartQuantity, addMultipleToCart, removeMultipleFromCart, clearCart]);
 
     return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

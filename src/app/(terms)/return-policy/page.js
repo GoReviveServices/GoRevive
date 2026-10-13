@@ -3,7 +3,7 @@ import { pageMetadata } from '@/lib/site';
 
 export const metadata = pageMetadata({
   title: "Return & Exchange Policy",
-  description: "How to return or exchange refurbished laptops, desktops and other IT hardware bought from GoRevive, including eligibility and timelines.",
+  description: "How to return or exchange pre-owned laptops, desktops and other IT hardware bought from GoRevive, including eligibility and timelines.",
   path: "/return-policy",
 });
 
@@ -39,7 +39,7 @@ export default function ReturnPolicyPage() {
               <span className="text-indigo-500 text-lg">01.</span> Our Commitment
             </h2>
             <p>
-              At GoRevive Pvt. Ltd., our goal is to provide dependable, affordable, and quality-tested refurbished electronics. Since refurbished devices differ from brand-new products, we believe in complete transparency regarding product condition and return procedures.
+              At GoRevive Pvt. Ltd., our goal is to provide dependable, affordable, and quality-tested pre-owned electronics. Since pre-owned devices differ from brand-new products, we believe in complete transparency regarding product condition and return procedures.
             </p>
           </section>
 
@@ -47,10 +47,10 @@ export default function ReturnPolicyPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <span className="text-indigo-500 text-lg">02.</span> Understanding Refurbished Products
+              <span className="text-indigo-500 text-lg">02.</span> Understanding Pre-Owned Products
             </h2>
             <p className="mb-6">
-              All products are pre-owned or professionally refurbished. While they are verified for functionality, the following conditions are considered <strong className="text-slate-900">normal</strong> and do <strong className="text-slate-900">not</strong> qualify for return:
+              All products are pre-owned and professionally inspected. While they are verified for functionality, the following conditions are considered <strong className="text-slate-900">normal</strong> and do <strong className="text-slate-900">not</strong> qualify for return:
             </p>
             <div className="bg-slate-50 border border-slate-100 rounded p-6">
               <ul className="grid sm:grid-cols-2 gap-4">

@@ -27,7 +27,7 @@ export const Header = () => {
                         <Link href="/" className="flex items-center gap-2 group" aria-label="GoRevive home">
                             <SmartImage
                                 src={imageUrl('images/brand_logo.png')}
-                                alt="GoRevive – certified refurbished IT hardware"
+                                alt="GoRevive – certified pre-owned IT hardware"
                                 width={240}
                                 height={80}
                                 priority

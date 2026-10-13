@@ -1,5 +1,6 @@
 import React from 'react';
 import SmartImage from '@/components/utils/UI/SmartImage';
+import { warrantyPrice, EXT_WARRANTY_MONTHS } from '@/lib/warranty';
 
 function OwnerSummary({ 
     cartItems, 
@@ -7,7 +8,8 @@ function OwnerSummary({
     handleProceedToPayment, 
     isInitiatingPayment, 
     unavailableItems = [], 
-    removeFromCart 
+    removeFromCart,
+    warrantyIds = []
 }) {
 
     // Check if there are any out-of-stock items currently in the cart
@@ -65,6 +67,9 @@ function OwnerSummary({
                                             <p className="font-mono text-xs text-gray-500 mt-0.5">
                                                 IMEI/ID: {item.product.id} • Grade {item.product.condition} • Qty: {item.quantity}
                                             </p>
+                                            {warrantyIds.includes(String(item.product.id)) && (
+                                                <p className="text-xs font-semibold text-emerald-700 mt-1">+ {EXT_WARRANTY_MONTHS} months extended warranty ({formatCurrency(warrantyPrice(item.product.price) * item.quantity)})</p>
+                                            )}
                                             
                                             {/* Remove Button for Out of Stock Items */}
                                             {isUnavailable && (

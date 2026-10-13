@@ -20,15 +20,15 @@ export async function generateMetadata({ searchParams }) {
 
     if (onlyCategory) {
         return pageMetadata({
-            title: `Refurbished ${pluralize(category)} for Business – Bulk B2B Prices`,
-            description: `Buy certified refurbished ${pluralize(category).toLowerCase()} in bulk from GoRevive. Every unit is quality-checked, graded A–D and backed by warranty. GST invoice for businesses.`,
+            title: `Pre-Owned ${pluralize(category)} for Business – Bulk B2B Prices`,
+            description: `Buy certified pre-owned ${pluralize(category).toLowerCase()} in bulk from GoRevive. Every unit is quality-checked, graded A–D and backed by warranty. GST invoice for businesses.`,
             path: `/products?category=${encodeURIComponent(category)}`,
         });
     }
     if (onlyBrand) {
         return pageMetadata({
-            title: `Refurbished ${brand} Laptops & Devices – Bulk B2B Prices`,
-            description: `Shop certified refurbished ${brand} devices in bulk from GoRevive. Graded, tested and warranty-backed with GST invoicing for businesses across India.`,
+            title: `Pre-Owned ${brand} Laptops & Devices – Bulk B2B Prices`,
+            description: `Shop certified pre-owned ${brand} devices in bulk from GoRevive. Graded, tested and warranty-backed with GST invoicing for businesses across India.`,
             path: `/products?brand=${encodeURIComponent(brand)}`,
         });
     }
@@ -37,8 +37,8 @@ export async function generateMetadata({ searchParams }) {
     const filtered = Boolean(sp.category || sp.brand || sp.price || sp.search || sp.sort);
     return {
         ...pageMetadata({
-            title: 'Buy Refurbished Laptops, Desktops & Monitors in Bulk',
-            description: 'Browse certified refurbished laptops, MacBooks, desktops, monitors and phones at B2B prices. Filter by brand, grade and price. Warranty-backed with GST invoice.',
+            title: 'Buy Pre-Owned Laptops, Desktops & Monitors in Bulk',
+            description: 'Browse certified pre-owned laptops, MacBooks, desktops, monitors and phones at B2B prices. Filter by brand, grade and price. Warranty-backed with GST invoice.',
             path: '/products',
         }),
         ...(filtered ? { robots: { index: false, follow: true } } : {}),
@@ -57,7 +57,7 @@ export default async function ProductsPage() {
     const itemList = {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
-        name: 'Refurbished IT products',
+        name: 'Pre-Owned IT products',
         numberOfItems: products.length,
         itemListElement: products.slice(0, 50).map((p, i) => ({
             '@type': 'ListItem',
@@ -75,7 +75,7 @@ export default async function ProductsPage() {
                     <nav aria-label="Breadcrumb" className="text-sm text-gray-500 mb-2">
                         <Link href="/" className="hover:text-[#1B5E3B]">Home</Link> <span aria-hidden="true">/</span> <span className="text-[#0B2136] font-semibold">Products</span>
                     </nav>
-                    <h1 className="text-2xl lg:text-3xl font-extrabold text-[#0B2136]">Certified Refurbished IT Hardware</h1>
+                    <h1 className="text-2xl lg:text-3xl font-extrabold text-[#0B2136]">Certified Pre-Owned IT Hardware</h1>
                     <p className="text-gray-500 mt-2 max-w-3xl text-[15px]">
                         Business-grade laptops, desktops, monitors and phones — every unit tested, graded and warranty-backed.
                         See <Link href="/grading" className="text-[#1B5E3B] font-semibold underline-offset-2 hover:underline">how we grade devices</Link>.

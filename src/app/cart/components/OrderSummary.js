@@ -1,10 +1,11 @@
 import { useRouter } from 'next/navigation';
 import React from 'react';
-import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
+import { MIN_ORDER_UNITS } from '@/lib/pricing';
+import { useCart } from '@/components/utils/Context/CartContext';
 
-export default function OrderSummary({ cartItems = [], formatCurrency }) {
+export default function OrderSummary({ formatCurrency }) {
   const router = useRouter();
-  const totals = computeOrderTotals(cartItems);
+  const { cartTotals: totals } = useCart(); // includes any extended warranties
   const isCheckoutDisabled = totals.units < MIN_ORDER_UNITS;
 
   return (
@@ -23,6 +24,13 @@ export default function OrderSummary({ cartItems = [], formatCurrency }) {
             <span className="font-bold text-[#0B2136]">{formatCurrency(totals.subtotal)}</span>
           </div>
           
+          {totals.warranty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-500 font-medium">Extended Warranty ({totals.warrantyUnits})</span>
+              <span className="font-bold text-[#0B2136]">+ {formatCurrency(totals.warranty)}</span>
+            </div>
+          )}
+
           {totals.discount > 0 && (
             <div className="flex justify-between text-emerald-600">
               <span className="font-bold">Bulk Discount (3%)</span>

@@ -26,7 +26,7 @@ const STEPS = [
 export default function CheckoutPage() {
     const router = useRouter();
     const { user, isAuthenticated, loading: authLoading } = useAuth();
-    const { cartItems, loading: cartLoading, removeFromCart } = useCart();
+    const { cartItems, loading: cartLoading, removeFromCart, warrantyIds } = useCart();
 
     const [currentStep, setCurrentStep] = useState(1);
 
@@ -139,7 +139,7 @@ export default function CheckoutPage() {
     // CALCULATIONS
     // ==========================================
     // Display only. The server recalculates the same totals before charging.
-    const totals = computeOrderTotals(cartItems, walletBalance);
+    const totals = computeOrderTotals(cartItems, walletBalance, warrantyIds);
     const totalRequestAmount = totals.total;
     const applicableWalletAmount = totals.walletAmount;
     const finalPayable = totals.payable;
@@ -243,7 +243,7 @@ export default function CheckoutPage() {
         const toastId = toast.loading('Creating purchase order...');
 
         try {
-            const { data } = await api.post('/checkout', { addressId: selectedAddressId, gateway, option });
+            const { data } = await api.post('/checkout', { addressId: selectedAddressId, gateway, option, warrantyIds });
 
             if (!data.success) {
                 toast.error(data.message || 'Failed to start payment.', { id: toastId });
@@ -342,6 +342,7 @@ export default function CheckoutPage() {
                                 isInitiatingPayment={isInitiatingPayment}
                                 unavailableItems={unavailableItems}
                                 removeFromCart={removeFromCart}
+                                warrantyIds={warrantyIds}
                             />
                         )}
 
