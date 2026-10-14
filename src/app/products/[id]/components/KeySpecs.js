@@ -18,7 +18,7 @@ export default function KeySpecs({ specs }) {
     const rows = Object.keys(LABELS).filter((k) => valid(specs?.[k])).map((k) => [k, specs[k]]);
     if (!rows.length) return null;
     return (
-        <section aria-labelledby="specs-heading" className="mt-12">
+        <section id="specs" aria-labelledby="specs-heading" className="mt-12 scroll-mt-24">
             <h2 id="specs-heading" className="mb-5 text-2xl font-extrabold tracking-tight text-[#0B2136]">Specifications</h2>
             <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {rows.map(([key, value]) => (

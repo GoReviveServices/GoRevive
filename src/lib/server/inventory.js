@@ -69,6 +69,25 @@ export function toUnit(item) {
     };
 }
 
+// Cart lines carry the grade, not the product category, so work the category
+// out for them: by unit id, then by model code, then from the product name.
+const LAPTOP_NAME = /\b(laptop|notebook|macbook|thinkpad|elitebook|probook|zbook|latitude|inspiron|ideapad|vostro|chromebook|vivobook|zenbook|travelmate)\b/i;
+
+export async function getCartCategoryResolver() {
+    const raw = await getRawInventory().catch(() => []);
+    const byId = new Map();
+    const byModelCode = new Map();
+    for (const item of raw) {
+        if (!item.product_category) continue;
+        byId.set(String(item.imei1 || item.imei || ''), item.product_category);
+        if (item.model_code && !byModelCode.has(String(item.model_code))) byModelCode.set(String(item.model_code), item.product_category);
+    }
+    return (line) =>
+        byId.get(String(line.productId)) ||
+        byModelCode.get(String(line.model_code)) ||
+        (LAPTOP_NAME.test(String(line.productName || '')) ? 'Laptop' : '');
+}
+
 /** Inventory grouped into product bundles (one card per model). Cached. */
 export function getProductBundles() {
     return cached('inventory:bundles', INVENTORY_TTL_MS, async () => {

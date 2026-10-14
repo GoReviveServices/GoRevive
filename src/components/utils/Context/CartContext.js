@@ -21,8 +21,9 @@ export const CartProvider = ({ children }) => {
     // Extended-warranty choices, limited to units actually in the cart.
     const savedWarrantyIds = useWarrantyIds(userCode);
     const warrantyIds = useMemo(() => {
-        const inCart = new Set(cartItems.map(i => String(i.product.id)));
-        return savedWarrantyIds.filter(id => inCart.has(id));
+        // Laptops only: the server marks each cart line as eligible or not.
+        const eligible = new Set(cartItems.filter(i => i.product.warrantyEligible).map(i => String(i.product.id)));
+        return savedWarrantyIds.filter(id => eligible.has(id));
     }, [savedWarrantyIds, cartItems]);
 
     const toggleWarranty = useCallback((unitId, enabled) => {

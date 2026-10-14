@@ -1,11 +1,11 @@
-import { PRODUCT_FAQ } from '../productFaq';
+import { getProductFaq } from '../productFaq';
 
-export default function ProductFaq() {
+export default function ProductFaq({ category }) {
     return (
-        <section aria-labelledby="faq-heading" className="mt-12">
+        <section id="faq" aria-labelledby="faq-heading" className="mt-12 scroll-mt-24">
             <h2 id="faq-heading" className="mb-5 text-2xl font-extrabold tracking-tight text-[#0B2136]">Frequently Asked Questions</h2>
             <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                {PRODUCT_FAQ.map(({ q, a }) => (
+                {getProductFaq(category).map(({ q, a }) => (
                     <details key={q} className="group px-5 py-4">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-bold text-[#0B2136] [&::-webkit-details-marker]:hidden">
                             {q}

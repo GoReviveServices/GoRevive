@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import { phpPost, isTrue } from './php';
 import { imageUrl } from '@/lib/site';
 import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
-import { warrantyPrice, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
+import { warrantyPrice, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
+import { getCartCategoryResolver } from './inventory';
 
 // ---------------------------------------------------------------------------
 // Cart, wallet and address — always read from PHP for the signed-in user.
@@ -13,11 +14,16 @@ export async function getServerCart(crmPartyCode) {
     const payload = await phpPost('view_cart.php', { userid: crmPartyCode });
     if (!isTrue(payload) || !Array.isArray(payload?.data?.cartdata)) return [];
 
-    return payload.data.cartdata.map((item) => ({
+    const categoryOf = await getCartCategoryResolver();
+    return payload.data.cartdata.map((item) => {
+        const productCategory = categoryOf(item);
+        return {
         product: {
             id: item.productId,
             name: item.productName || item.model_code,
             category: item.item_category,
+            productCategory,
+            warrantyEligible: isWarrantyEligible(productCategory),
             brand: item.brand,
             price: Number(item.price || item.purchase_price) || 0,
             mrp: Number(item.purchase_price) || 0,
@@ -30,7 +36,8 @@ export async function getServerCart(crmPartyCode) {
             isStock: item.isStock,
         },
         quantity: Number(item.productQty || item.qty || 1),
-    }));
+        };
+    });
 }
 
 export async function getWalletBalance(crmPartyCode) {
@@ -94,8 +101,8 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
     if (unavailable.length) throw new OrderError('Some items in your cart are no longer available.', { unavailable: unavailable.map((i) => i.product.id) });
     if (items.some((i) => !(i.product.price > 0))) throw new OrderError('An item in your cart has no valid price. Please remove and re-add it.');
 
-    // Extended warranty: only for units really in this cart; price set here.
-    const cartIds = new Set(items.map((i) => String(i.product.id)));
+    // Extended warranty: only for laptops really in this cart; price set here.
+    const cartIds = new Set(items.filter((i) => i.product.warrantyEligible).map((i) => String(i.product.id)));
     const warranty = [...new Set((Array.isArray(warrantyIds) ? warrantyIds : []).map(String))].filter((id) => cartIds.has(id));
     const totals = computeOrderTotals(items, walletBalance, warranty);
     if (totals.units < MIN_ORDER_UNITS) throw new OrderError(`Minimum order is ${MIN_ORDER_UNITS} units.`);

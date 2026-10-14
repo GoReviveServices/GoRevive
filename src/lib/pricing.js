@@ -20,7 +20,8 @@ export function computeOrderTotals(items = [], walletBalance = 0, warrantyIds = 
     // The bulk discount applies to devices only, not to the warranty add-on.
     const discountRate = units >= BULK_DISCOUNT_MIN_UNITS ? BULK_DISCOUNT_RATE : 0;
     const discount = round2(subtotal * discountRate);
-    const warrantyItems = items.filter((i) => withWarranty.has(String(i.product?.id)));
+    // Laptops only: other categories never carry the extended warranty.
+    const warrantyItems = items.filter((i) => i.product?.warrantyEligible && withWarranty.has(String(i.product?.id)));
     const warrantyUnits = warrantyItems.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
     const warranty = round2(warrantyItems.reduce((sum, i) => sum + warrantyPrice(i.product?.price) * (Number(i.quantity) || 0), 0));
     const total = round2(subtotal - discount + warranty);

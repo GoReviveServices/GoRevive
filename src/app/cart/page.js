@@ -195,7 +195,7 @@ export default function CartPage() {
                                                         <p className="text-xs font-semibold text-gray-500 mt-0.5">
                                                             Grade {item.product.condition || item.product.category}
                                                         </p>
-                                                        {isAvailable && (
+                                                        {isAvailable && item.product.warrantyEligible && (
                                                             <label className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 cursor-pointer">
                                                                 <input
                                                                     type="checkbox"
@@ -313,4 +313,4 @@ export default function CartPage() {
             )}
         </div>
     );
-}
+}

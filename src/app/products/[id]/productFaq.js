@@ -1,14 +1,10 @@
-import { EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
+import { EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE, isWarrantyEligible } from '@/lib/warranty';
 import { MIN_ORDER_UNITS, BULK_DISCOUNT_MIN_UNITS, BULK_DISCOUNT_RATE } from '@/lib/pricing';
 
 // Questions shown on every product page (and published as FAQ schema).
 // Answers are taken from the Warranty, Return and Shipping policy pages —
 // update them together if a policy changes.
-export const PRODUCT_FAQ = [
-    {
-        q: 'What warranty comes with this device?',
-        a: `Every device includes a 7-day standard warranty for business buyers. You can add a ${EXT_WARRANTY_MONTHS}-month extended warranty for ${EXT_WARRANTY_RATE * 100}% of the unit price when you add it to your cart.`,
-    },
+const BASE_FAQ = [
     {
         q: 'What do the condition grades mean?',
         a: 'Grade A is as good as new, Grade B shows minimal signs of use, Grade C has visible usage or minor issues, and Grade D has visible usage or functional issues. Each unit is graded after a quality check.',
@@ -35,10 +31,21 @@ export const PRODUCT_FAQ = [
     },
 ];
 
-export const faqSchema = () => ({
+// The extended warranty is offered on laptops only, so only laptop pages mention it.
+export const getProductFaq = (category) => [
+    {
+        q: 'What warranty comes with this device?',
+        a: isWarrantyEligible(category)
+            ? `Every device includes a 7-day standard warranty for business buyers. You can add a ${EXT_WARRANTY_MONTHS}-month extended warranty for ${EXT_WARRANTY_RATE * 100}% of the unit price when you add it to your cart.`
+            : 'Every device includes a 7-day standard warranty for business buyers.',
+    },
+    ...BASE_FAQ,
+];
+
+export const faqSchema = (category) => ({
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: PRODUCT_FAQ.map(({ q, a }) => ({
+    mainEntity: getProductFaq(category).map(({ q, a }) => ({
         '@type': 'Question',
         name: q,
         acceptedAnswer: { '@type': 'Answer', text: a },

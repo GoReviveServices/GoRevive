@@ -60,7 +60,7 @@ export default async function ProductPage({ params }) {
         .filter((b) => b.slug !== product.slug && b.category === product.category)
         .sort((a, b) => (b.brand === product.brand) - (a.brand === product.brand) || b.totalStock - a.totalStock)
         .slice(0, 8)
-        .map(({ slug, brand, model }) => ({ slug, brand, model }));
+        .map(({ slug, brand, model, image }) => ({ slug, brand, model, image }));
 
     const url = `${SITE_URL}/products/${product.slug}`;
     const productSchema = {
@@ -103,7 +103,7 @@ export default async function ProductPage({ params }) {
 
     return (
         <>
-            <JsonLd data={[productSchema, breadcrumbSchema, faqSchema()]} />
+            <JsonLd data={[productSchema, breadcrumbSchema, faqSchema(product.category)]} />
             <ProductDetailClient product={product} initialUnits={units} related={related} />
         </>
     );

@@ -4,7 +4,7 @@ import { GRADE_INFO } from './ConditionSelector';
 // What each condition grade means, with the grades this product is offered in highlighted.
 export default function GradeGuide({ available = [] }) {
     return (
-        <section aria-labelledby="grades-heading" className="mt-12">
+        <section id="grades" aria-labelledby="grades-heading" className="mt-12 scroll-mt-24">
             <div className="mb-5 flex items-end justify-between gap-4">
                 <h2 id="grades-heading" className="text-2xl font-extrabold tracking-tight text-[#0B2136]">Condition Grades Explained</h2>
                 <Link href="/grading" className="inline-block whitespace-nowrap py-1.5 text-sm font-semibold text-[#1B5E3B] hover:underline">Full grading guide</Link>
