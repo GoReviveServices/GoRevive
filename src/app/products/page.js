@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
-import Link from 'next/link';
 import { getProductBundles } from '@/lib/server/inventory';
+import { getBanners } from '@/lib/server/banners';
 import { SITE_URL, pageMetadata, pluralize } from '@/lib/site';
 import JsonLd from '@/components/utils/SEO/JsonLd';
 import { ProductSkeleton } from '@/components/module/Products/Components/ProductSkeleton';
@@ -15,8 +15,8 @@ export async function generateMetadata({ searchParams }) {
     const sp = await searchParams;
     const category = one(sp.category);
     const brand = one(sp.brand);
-    const onlyCategory = category && !sp.brand && !sp.price && !sp.search;
-    const onlyBrand = brand && !sp.category && !sp.price && !sp.search;
+    const onlyCategory = category && !sp.brand && !sp.price && !sp.search && !sp.grade && !sp.ram;
+    const onlyBrand = brand && !sp.category && !sp.price && !sp.search && !sp.grade && !sp.ram;
 
     if (onlyCategory) {
         return pageMetadata({
@@ -34,7 +34,7 @@ export async function generateMetadata({ searchParams }) {
     }
     // Any other filter combination (price, search, several brands…) is the
     // same content as /products, so it points there and stays out of the index.
-    const filtered = Boolean(sp.category || sp.brand || sp.price || sp.search || sp.sort);
+    const filtered = Boolean(sp.category || sp.brand || sp.price || sp.search || sp.sort || sp.grade || sp.ram);
     return {
         ...pageMetadata({
             title: 'Buy Pre-Owned Laptops, Desktops & Monitors in Bulk',
@@ -46,13 +46,16 @@ export async function generateMetadata({ searchParams }) {
 }
 
 const GridFallback = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-        {[...Array(6)].map((_, i) => <ProductSkeleton key={i} />)}
+    <div className="grid grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-2.5 lg:gap-4">
+        {[...Array(8)].map((_, i) => <ProductSkeleton key={i} />)}
     </div>
 );
 
 export default async function ProductsPage() {
-    const products = await getProductBundles().catch(() => []);
+    const [products, banners] = await Promise.all([
+        getProductBundles().catch(() => []),
+        getBanners().catch(() => []),
+    ]);
 
     const itemList = {
         '@context': 'https://schema.org',
@@ -68,24 +71,13 @@ export default async function ProductsPage() {
     };
 
     return (
-        <div className="bg-[#F8FAFC] min-h-screen">
+        <div className="min-h-screen bg-[#FAFAF8] bg-[radial-gradient(1100px_520px_at_10%_-10%,#FFF6EC_0,transparent_60%),radial-gradient(900px_480px_at_95%_0,#F1F0FF_0,transparent_60%)]">
             <JsonLd data={itemList} />
-            <div className="bg-white border-b border-gray-200">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-[1820px] py-6 lg:py-8">
-                    <nav aria-label="Breadcrumb" className="text-sm text-gray-500 mb-2">
-                        <Link href="/" className="hover:text-[#1B5E3B]">Home</Link> <span aria-hidden="true">/</span> <span className="text-[#0B2136] font-semibold">Products</span>
-                    </nav>
-                    <h1 className="text-2xl lg:text-3xl font-extrabold text-[#0B2136]">Certified Pre-Owned IT Hardware</h1>
-                    <p className="text-gray-500 mt-2 max-w-3xl text-[15px]">
-                        Business-grade laptops, desktops, monitors and phones — every unit tested, graded and warranty-backed.
-                        See <Link href="/grading" className="text-[#1B5E3B] font-semibold underline-offset-2 hover:underline">how we grade devices</Link>.
-                    </p>
-                </div>
-            </div>
-
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-[1400px] py-8">
+            {/* Kept for SEO and screen readers; the page opens visually on categories + banners. */}
+            <h1 className="sr-only">Certified Pre-Owned IT Hardware</h1>
+            <div className="mx-auto max-w-[1440px] px-4 sm:px-5 pt-4 pb-24 lg:pb-14">
                 <Suspense fallback={<GridFallback />}>
-                    <ProductsClient initialProducts={products} />
+                    <ProductsClient initialProducts={products} initialBanners={banners} />
                 </Suspense>
             </div>
         </div>

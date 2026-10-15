@@ -36,8 +36,6 @@ function deriveProcessor(item) {
     return match ? `Intel ${match[0]}` : '';
 }
 
-// Storage arrives as "HDD/SSD" with empty halves, e.g. "/256GB SSD" or "1TB HDD/".
-// Drop the empty parts; join real ones with " + " ("1TB HDD + 256GB SSD").
 export const cleanStorage = (value) =>
     String(value || '')
         .split('/')
@@ -45,7 +43,6 @@ export const cleanStorage = (value) =>
         .filter((part) => part && !/^(n\/?a|na|-)$/i.test(part))
         .join(' + ');
 
-/** One sellable serialized unit, shaped for the frontend. */
 export function toUnit(item) {
     const price = unitPrice(item);
     const mrp = Number(item.MRP) > 0 ? Number(item.MRP) : Math.round(price * 1.2);

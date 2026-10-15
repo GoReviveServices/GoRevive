@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { PRICE_SLOTS, SORT_OPTIONS } from '@/lib/priceSlots';
 import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
 
@@ -12,79 +12,104 @@ export const ProductToolbar = memo(function ProductToolbar({
     setSort,
     handleSearch,
     removeFilter,
-    resultCount,
+    clearAllFilters,
+    view,
+    setView,
 }) {
     // Typing updates the box instantly; the list filters 300ms after you stop.
     const [term, setTerm] = useDebouncedSearch(filters.search, handleSearch, 300);
-    const hasChips = filters.category.length > 0 || filters.brand.length > 0 || filters.price.length > 0 || filters.search;
+    const [menuOpen, setMenuOpen] = useState(false);
+    const sortLabel = SORT_OPTIONS.find(o => o.id === sort)?.label || 'Relevance';
+
+    const chips = [
+        ...(filters.search ? [{ key: 'q', label: `“${filters.search}”`, remove: () => handleSearch('') }] : []),
+        ...filters.price.map(v => ({ key: `p${v}`, label: slotLabel(v), remove: () => removeFilter('price', v) })),
+        ...filters.category.map(v => ({ key: `c${v}`, label: v, remove: () => removeFilter('category', v) })),
+        ...filters.brand.map(v => ({ key: `b${v}`, label: v, remove: () => removeFilter('brand', v) })),
+        ...filters.grade.map(v => ({ key: `g${v}`, label: `Grade ${v}`, remove: () => removeFilter('grade', v) })),
+        ...filters.ram.map(v => ({ key: `r${v}`, label: `${v} RAM`, remove: () => removeFilter('ram', v) })),
+    ];
+
+    const viewBtn = (id, label, path) => (
+        <button
+            type="button"
+            onClick={() => setView(id)}
+            aria-label={label}
+            aria-pressed={view === id}
+            className={`w-[34px] h-8 rounded-full flex items-center justify-center ${view === id ? 'bg-white shadow-[0_1px_3px_rgba(10,31,20,.15)] text-[#1B5E3B]' : 'text-[#7A8F82]'}`}
+        >
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={path} /></svg>
+        </button>
+    );
 
     return (
-        <div className="mb-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] mb-4">
-                <div className="w-full sm:w-auto flex-1">
-                    <div className="relative max-w-sm">
-                        <svg aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        <label htmlFor="inventory-search" className="sr-only">Search inventory</label>
-                        <input
-                            id="inventory-search"
-                            type="search"
-                            placeholder="Search inventory..."
-                            value={term}
-                            onChange={(e) => setTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:border-[#1B5E3B] focus:ring-2 focus:ring-[#1B5E3B]/20 outline-none transition-all"
-                        />
-                    </div>
+        <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 flex-wrap bg-white border border-[#E3EBE6] rounded-[14px] shadow-[0_1px_3px_rgba(10,31,20,.05)] px-3 py-2.5">
+                <div className="relative flex-1 basis-[260px] min-w-[180px] lg:max-w-[520px]">
+                    <svg aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A8F82]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                    <label htmlFor="inventory-search" className="sr-only">Search inventory</label>
+                    <input
+                        id="inventory-search"
+                        type="search"
+                        placeholder="Search model, brand, processor"
+                        value={term}
+                        onChange={(e) => setTerm(e.target.value)}
+                        className="w-full h-[38px] pl-9 pr-3.5 rounded-full bg-[#F2F6F3] border border-transparent text-[13.5px] text-[#0A1A0E] outline-none focus:bg-white focus:border-[#4CAF7D] transition-colors"
+                    />
                 </div>
 
-                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                    <p className="text-[13px] text-gray-500 whitespace-nowrap" aria-live="polite">
-                        <strong className="text-[#0B2136] font-black">{resultCount}</strong> devices
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="sort" className="text-[13px] font-bold text-gray-500">Sort:</label>
-                        <select
-                            id="sort"
-                            value={sort}
-                            onChange={(e) => setSort(e.target.value)}
-                            className="text-[13px] font-bold text-[#0B2136] bg-gray-50 border border-gray-200 rounded-xl py-2 pl-3 pr-8 cursor-pointer focus:bg-white focus:border-[#1B5E3B] outline-none transition-all"
-                        >
-                            {SORT_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                        </select>
-                    </div>
+                <div className="hidden lg:block relative ml-auto">
+                    <button
+                        type="button"
+                        aria-haspopup="listbox"
+                        aria-expanded={menuOpen}
+                        onClick={() => setMenuOpen(o => !o)}
+                        className="h-[38px] flex items-center gap-2 pl-3.5 pr-3 rounded-full border border-[#E3EBE6] bg-white text-[13.5px] text-[#4A6355] whitespace-nowrap hover:border-[#B8C9BF]"
+                    >
+                        <svg aria-hidden="true" className="w-[15px] h-[15px] text-[#1B5E3B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 16-4 4-4-4M17 20V4M3 8l4-4 4 4M7 4v16" /></svg>
+                        Sort by <b className="font-bold text-[#0A1A0E]">{sortLabel}</b>
+                        <svg aria-hidden="true" className={`w-[15px] h-[15px] transition-transform ${menuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </button>
+                    {menuOpen && (
+                        <>
+                            <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                            <div role="listbox" aria-label="Sort by" className="absolute right-0 top-[calc(100%+6px)] z-[31] min-w-[220px] bg-white border border-[#E3EBE6] rounded-xl shadow-[0_18px_40px_-12px_rgba(10,31,20,.25)] p-1.5">
+                                {SORT_OPTIONS.map(o => {
+                                    const active = o.id === sort;
+                                    return (
+                                        <button
+                                            key={o.id}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={active}
+                                            onClick={() => { setSort(o.id); setMenuOpen(false); }}
+                                            className={`w-full h-[38px] px-2.5 rounded-lg flex items-center justify-between gap-3 text-left text-[13.5px] hover:bg-[#F4F8F5] ${active ? 'bg-[#F0FAF5] font-extrabold text-[#1B5E3B]' : 'font-medium text-[#24402F]'}`}
+                                        >
+                                            {o.label}
+                                            {active && <svg aria-hidden="true" className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <div className="hidden lg:flex p-[3px] gap-0.5 rounded-full bg-[#F2F6F3]">
+                    {viewBtn('grid', 'Grid view', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z')}
+                    {viewBtn('list', 'List view', 'M3 6h.01M3 12h.01M3 18h.01M8 6h13M8 12h13M8 18h13')}
                 </div>
             </div>
 
-            {hasChips && (
-                <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-[13px] font-bold text-gray-400 mr-2">Active:</span>
-
-                    {filters.search && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[12px] font-bold bg-gray-200 text-gray-700">
-                            &ldquo;{filters.search}&rdquo;
-                            <button onClick={() => handleSearch('')} aria-label="Clear search" className="hover:text-red-500 ml-1">&times;</button>
-                        </span>
-                    )}
-
-                    {filters.price.map(id => (
-                        <span key={id} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[12px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            {slotLabel(id)}
-                            <button onClick={() => removeFilter('price', id)} aria-label={`Remove price filter ${slotLabel(id)}`} className="hover:text-red-500 ml-1">&times;</button>
-                        </span>
+            {chips.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center" aria-label="Active filters">
+                    {chips.map(c => (
+                        <button key={c.key} type="button" onClick={c.remove} aria-label={`Remove ${c.label}`} className="h-[30px] flex items-center gap-1.5 pl-3 pr-2.5 rounded-full border border-[#CFE3D7] bg-[#F0FAF5] text-[12.5px] font-semibold text-[#1B5E3B] hover:border-[#1B5E3B]">
+                            {c.label}
+                            <svg aria-hidden="true" className="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                        </button>
                     ))}
-
-                    {filters.category.map(cat => (
-                        <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[12px] font-bold bg-[#F0FAF5] text-[#1B5E3B] border border-[#1B5E3B]/20">
-                            {cat}
-                            <button onClick={() => removeFilter('category', cat)} aria-label={`Remove category ${cat}`} className="hover:text-red-500 ml-1">&times;</button>
-                        </span>
-                    ))}
-
-                    {filters.brand.map(b => (
-                        <span key={b} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[12px] font-bold bg-[#0B2136] text-white">
-                            {b}
-                            <button onClick={() => removeFilter('brand', b)} aria-label={`Remove brand ${b}`} className="hover:text-red-400 ml-1">&times;</button>
-                        </span>
-                    ))}
+                    <button type="button" onClick={clearAllFilters} className="px-1 text-[12.5px] font-bold text-[#B1401F]">Clear all</button>
                 </div>
             )}
         </div>
