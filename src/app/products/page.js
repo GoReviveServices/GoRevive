@@ -71,7 +71,7 @@ export default async function ProductsPage() {
         <div className="bg-[#F8FAFC] min-h-screen">
             <JsonLd data={itemList} />
             <div className="bg-white border-b border-gray-200">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-[1400px] py-6 lg:py-8">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-[1820px] py-6 lg:py-8">
                     <nav aria-label="Breadcrumb" className="text-sm text-gray-500 mb-2">
                         <Link href="/" className="hover:text-[#1B5E3B]">Home</Link> <span aria-hidden="true">/</span> <span className="text-[#0B2136] font-semibold">Products</span>
                     </nav>

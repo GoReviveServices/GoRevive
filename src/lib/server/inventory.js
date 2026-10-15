@@ -36,6 +36,15 @@ function deriveProcessor(item) {
     return match ? `Intel ${match[0]}` : '';
 }
 
+// Storage arrives as "HDD/SSD" with empty halves, e.g. "/256GB SSD" or "1TB HDD/".
+// Drop the empty parts; join real ones with " + " ("1TB HDD + 256GB SSD").
+export const cleanStorage = (value) =>
+    String(value || '')
+        .split('/')
+        .map((part) => part.trim())
+        .filter((part) => part && !/^(n\/?a|na|-)$/i.test(part))
+        .join(' + ');
+
 /** One sellable serialized unit, shaped for the frontend. */
 export function toUnit(item) {
     const price = unitPrice(item);
@@ -59,7 +68,7 @@ export function toUnit(item) {
         specs: {
             processor: deriveProcessor(item),
             ram: item.memory_ram || '',
-            storage: item.internal_storage || '',
+            storage: cleanStorage(item.internal_storage),
             display: item.display_size || '',
             os: (item.product_category || '').toLowerCase() === 'monitor' ? '' : item.operating_system || '',
             color: item.color || '',
@@ -116,7 +125,7 @@ export function getProductBundles() {
                     category: item.product_category,
                     image: imageUrl(item.Original_image1),
                     secondaryImage: imageUrl(item.Original_image2),
-                    baseSpecs: { ram: item.memory_ram, storage: item.internal_storage },
+                    baseSpecs: { ram: item.memory_ram, storage: cleanStorage(item.internal_storage) },
                     totalStock: 0,
                     startingPrice: Infinity,
                     mrp,

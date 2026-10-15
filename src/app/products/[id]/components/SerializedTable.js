@@ -1,243 +1,130 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ClipboardList, Check, Lock, PackageOpen, ScanBarcode } from 'lucide-react';
 import { useAuth } from '@/components/utils/Context/AuthContext';
 import { useCart } from '@/components/utils/Context/CartContext';
-import { ClipboardList, ClipboardPenLine } from 'lucide-react';
-import toast from 'react-hot-toast';
-import Link from 'next/link';
+import { SectionHeading } from './PdpBlocks';
 
-const formatCurrency = (amount) =>
-    new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        maximumFractionDigits: 0
-    }).format(amount).replace(/\s/g, '');
+const inr = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n).replace(/\s/g, '');
+const valid = (v) => v != null && String(v).trim() && !['/', 'N/A', 'NA'].includes(String(v).trim());
+const configOf = (u) => [u.specs?.processor, u.specs?.ram, u.specs?.storage].filter(valid).join(' · ') || '—';
 
-export default function SerializedTable({ matchingUnits, withWarranty = false }) {
+const COLS = 'grid grid-cols-[44px_1.4fr_1.6fr_1fr_130px] items-center gap-3 px-[22px]';
+
+/** Compact, selectable list of the exact serials in stock for the selected configuration. */
+export default function SerializedTable({ matchingUnits, withWarranty = false, grade, initialRows = 6 }) {
     const router = useRouter();
     const { isAuthenticated } = useAuth();
-    const { addToCart, cartItems } = useCart();
-    const [addingToCart, setAddingToCart] = useState(null);
-    const [showMobileSerial, setShowMobileSerial] = useState(null);
+    const { addMultipleToCart, cartItems } = useCart();
+    const [selected, setSelected] = useState([]);
+    const [sort, setSort] = useState('price');
+    const [showAll, setShowAll] = useState(false);
+    const [adding, setAdding] = useState(false);
 
-    const handleAddToCart = async (unit) => {
-        setAddingToCart(unit.id);
+    const cartIds = useMemo(() => new Set((cartItems || []).map(i => String(i.product.id))), [cartItems]);
+    const units = useMemo(() => {
+        const list = matchingUnits.filter(u => !cartIds.has(String(u.id)));
+        return [...list].sort(sort === 'serial'
+            ? (a, b) => String(a.serialNumber || a.id).localeCompare(String(b.serialNumber || b.id))
+            : (a, b) => a.price - b.price);
+    }, [matchingUnits, cartIds, sort]);
+    const shown = showAll ? units : units.slice(0, initialRows);
+    const picked = units.filter(u => selected.includes(u.id));
+    const pickedTotal = picked.reduce((s, u) => s + u.price, 0);
+
+    const toggle = (id) => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
+    const addPicked = async () => {
+        if (!isAuthenticated) return router.push('/login');
+        if (!picked.length) return;
+        setAdding(true);
         try {
-            await addToCart(unit, { warranty: withWarranty });
+            await addMultipleToCart(picked, { warranty: withWarranty });
+            setSelected([]);
         } finally {
-            setAddingToCart(null);
-        }
-    };
-
-    const handleQuickAdd = async (unit, redirect = false) => {
-        try {
-            await handleAddToCart(unit);
-            if (redirect) {
-                router.push('/cart');
-            }
-        } catch (error) {
+            setAdding(false);
         }
     };
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mt-4 shadow-sm transition-shadow hover:shadow-md">
-            {/* Enhanced Header Area */}
-            <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#F0FAF5] rounded-lg">
-                        <svg className="w-5 h-5 text-[#1B5E3B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 className="font-bold text-gray-900 text-[15px]">Available Units in Warehouse</h2>
-                        <p className="text-xs text-gray-500 mt-0.5">Real-time inventory updates</p>
-                    </div>
+        <section id="units" aria-labelledby="units-heading" className="mt-4 scroll-mt-24 overflow-hidden rounded-[18px] border border-[#DDEFE3] bg-white shadow-[0_10px_30px_-12px_rgba(27,94,59,0.18),0_1px_3px_rgba(10,31,20,0.05)]">
+            <div className="flex flex-wrap items-end justify-between gap-2.5 border-b border-gray-100 px-[22px] py-[18px]">
+                <div className="min-w-0 flex-[1_1_300px]">
+                    <SectionHeading id="units-heading" icon={ScanBarcode} className="mb-1">Pick exact units</SectionHeading>
+                    <p className="text-[13px] text-gray-500">Pick exact serial numbers instead of quick add.{grade ? ` Grade ${grade} · ` : ' '}{units.length} available · live warehouse stock</p>
                 </div>
-                <span className="bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-2 w-fit border border-emerald-200/50">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-sm"></span>
-                    {matchingUnits.length} Ready to Dispatch
-                </span>
+                <div className="flex flex-shrink-0 items-center gap-1.5 text-[13px]">
+                    <span className="text-gray-500">Sort</span>
+                    {[['price', 'Lowest price'], ['serial', 'Serial no.']].map(([id, label]) => (
+                        <button key={id} type="button" onClick={() => setSort(id)} className={`whitespace-nowrap rounded-full border px-3 py-1.5 font-semibold ${sort === id ? 'border-[#1B5E3B] bg-[#F0FAF5]' : 'border-[#D6E2DB] bg-white'}`}>{label}</button>
+                    ))}
+                </div>
             </div>
 
-            {/* Enhanced Empty State */}
-            {matchingUnits.length === 0 ? (
-                <div className="p-12 text-center bg-white flex flex-col items-center justify-center">
-                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                        <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                        </svg>
-                    </div>
-                    <p className="text-lg font-bold text-gray-700">Configuration Out of Stock</p>
-                    <p className="text-sm text-gray-500 mt-1 max-w-sm leading-relaxed">
-                        We currently don’t have this exact specification in our warehouse.
-                        Try selecting a different Grade or Spec, or check back soon for new inventory.
-                    </p>
+            {units.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 px-6 py-10 text-center text-sm text-gray-500">
+                    <PackageOpen className="h-8 w-8 text-gray-300" />
+                    No units of this configuration in the warehouse right now. Try another grade or spec.
                 </div>
             ) : !isAuthenticated ? (
-                /* Enhanced Auth Gate (Blurred State) */
-                <div className="relative bg-white min-h-[300px]">
-                    <div className="flex flex-col blur-[5px] opacity-40 select-none pointer-events-none p-6">
-                        {/* Mock Table Header */}
-                        <div className="flex justify-between text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200 pb-3 mb-3">
-                            <span>Serial No / IMEI</span>
-                            <span>B2B Price</span>
-                            <span>Action</span>
-                        </div>
-                        {/* Mock Rows with better styling */}
-                        {[1, 2, 3].map((_, i) => (
-                            <div key={i} className="flex justify-between items-center py-4 border-b border-gray-100 last:border-0 animate-pulse">
-                                <span className="font-mono text-gray-400 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-100">
-                                    XXXXXX{i}ABC
-                                </span>
-                                <span className="font-bold text-gray-300 text-lg">₹XX,XXX</span>
-                                <div className="px-8 py-2.5 bg-gray-100 rounded-lg w-28 h-9"></div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Enhanced Overlay */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm p-6 text-center">
-                        <div className="bg-white/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-gray-200/50 max-w-sm">
-                            <div className="w-16 h-16 bg-[#F0FAF5] rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg className="w-8 h-8 text-[#1B5E3B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">B2B Access Required</h3>
-                            <p className="text-sm text-gray-600 mb-6">Login to view serial numbers and wholesale pricing</p>
-                            <button
-                                onClick={() => router.push('/login')}
-                                className="group w-full flex items-center justify-center gap-2 bg-[#0B2136] text-white text-sm font-semibold uppercase tracking-wide px-8 py-3.5 rounded-xl shadow-lg hover:bg-[#1B5E3B] transition-all duration-200 ease-in-out hover:-translate-y-0.5 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#1B5E3B] focus:ring-offset-2"
-                            >
-                                <svg className="w-4 h-4 text-white/80 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                                Login to Continue
-                            </button>
-                            <p className="text-xs text-gray-500 mt-4 flex items-center justify-center gap-1">
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                Verified B2B Buyers Only
-                            </p>
-                        </div>
-                    </div>
+                <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F0FAF5]"><Lock className="h-6 w-6 text-[#1B5E3B]" /></span>
+                    <p className="font-bold text-[#0B2136]">Login to view serial numbers and B2B pricing</p>
+                    <Link href="/login" className="rounded-full bg-[#0A1F14] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#1B5E3B]">Login to continue</Link>
                 </div>
             ) : (
-                <div className="bg-white">
-                    <div className="">
-                        {matchingUnits.map((unit) => {
-                            const isInCart = cartItems?.some(item => item.product.id === unit.id);
-                            const hasDiscount = unit.mrp > unit.price;
-                            const discountAmt = hasDiscount ? (unit.mrp - unit.price) : 0;
-                            const isLoading = addingToCart === unit.id;
-
+                <div className="overflow-x-auto">
+                    <div className="min-w-[680px]">
+                        <div className={`${COLS} bg-[#F7FAF8] py-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-[#8AA898]`}>
+                            <span /><span>Serial no.</span><span>Configuration</span><span className="text-right">Price</span><span className="text-right">QC report</span>
+                        </div>
+                        {shown.map((u) => {
+                            const on = selected.includes(u.id);
                             return (
-                                <div key={unit.id} className="p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition-colors">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div>
-                                            <span className="font-mono font-semibold text-gray-600 bg-gray-100 px-2.5 py-1.5 rounded-md border border-gray-200 text-xs tracking-tight">
-                                                {unit.serialNumber || unit.id}
-                                            </span>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="font-extrabold text-gray-900 text-lg">
-                                                {formatCurrency(unit.price)}
-                                            </span>
-                                            {hasDiscount && (
-                                                <div className="flex items-center gap-2 mt-1 justify-end">
-                                                    <span className="text-xs text-gray-400 line-through">
-                                                        {formatCurrency(unit.mrp)}
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                                                        Save {formatCurrency(discountAmt)}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className='flex gap-3'>
-                                        <button
-                                            onClick={() => handleAddToCart(unit)}
-                                            disabled={isInCart || isLoading}
-                                            className={` flex-1 cursor-pointer inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-in-out ${isInCart
-                                                    ? 'bg-emerald-50 text-emerald-600 cursor-not-allowed'
-                                                    : isLoading
-                                                        ? 'bg-gray-100 text-gray-400 cursor-wait'
-                                                        : 'border border-black text-g600 overflow-hidden rounded-full '
-                                                }`}
-                                        >
-                                            {isInCart ? (
-                                                <span className="flex items-center gap-1.5">
-                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                    Added to Cart
-                                                </span>
-                                            ) : isLoading ? (
-                                                <span className="flex items-center gap-2">
-                                                    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                    </svg>
-                                                    Adding...
-                                                </span>
-                                            ) : 'Add to Cart'}
-                                        </button>
-                                        {!isInCart && (
-                                            <button
-                                                onClick={() => handleQuickAdd(unit, true)}
-                                                disabled={isLoading}
-
-                                                className=' flex-1 border bg-[#06002c] text-white hover:bg-green-600 cursor-pointer inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all duration-200 ease-in-out'>
-                                                Buy Now
-                                            </button>
-                                        )}
-                                        <Link
-                                        href={`/qc/${unit.serialNumber || unit.id}`}
-                                            // onClick={() => {}}
-                                         className=' cursor-pointer aspect-square justify-center items-center flex '>
-                                            <ClipboardList strokeWidth={1} />
-                                        </Link>
-
-                                    </div>
-
-
+                                <div
+                                    key={u.id}
+                                    role="checkbox"
+                                    aria-checked={on}
+                                    tabIndex={0}
+                                    onClick={() => toggle(u.id)}
+                                    onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(u.id); } }}
+                                    className={`${COLS} cursor-pointer border-t border-[#EEF3F0] py-3 text-sm ${on ? 'bg-[#F1FBE6]' : 'bg-white hover:bg-gray-50/60'}`}
+                                >
+                                    <span className={`flex h-5 w-5 items-center justify-center rounded-[5px] border-2 ${on ? 'border-[#1B5E3B] bg-[#1B5E3B]' : 'border-[#C9D6CF] bg-white'}`}>{on && <Check className="h-3 w-3 text-white" strokeWidth={3} />}</span>
+                                    <span className="font-mono text-[13px]">{u.serialNumber || u.id}</span>
+                                    <span className="text-[13px] text-gray-500">{configOf(u)}</span>
+                                    <span className="flex flex-col text-right">
+                                        <b>{inr(u.price)}</b>
+                                        {u.mrp > u.price && <span className="text-xs text-[#1B5E3B]">Save {inr(u.mrp - u.price)}</span>}
+                                    </span>
+                                    <Link href={`/qc/${u.serialNumber || u.id}`} onClick={(e) => e.stopPropagation()} className="flex items-center justify-end gap-1.5 text-[13px] font-semibold text-[#1B5E3B] hover:underline">
+                                        <ClipboardList className="h-4 w-4" />View report
+                                    </Link>
                                 </div>
                             );
                         })}
                     </div>
-
-
-                    <div className="bg-gradient-to-r from-emerald-50/50 to-white px-6 py-4 border-t border-emerald-100">
-                        <div className="flex items-start sm:items-center justify-between gap-4">
-                            <div className="flex items-start sm:items-center gap-3 flex-1">
-                                <div className="bg-emerald-100 p-2 rounded-lg shrink-0 mt-0.5 sm:mt-0">
-                                    <svg className="w-4 h-4 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p className="text-emerald-800 text-xs sm:text-sm font-medium leading-relaxed">
-                                        <strong className="font-bold">Pro Tip:</strong> Buy 10+ total units to unlock an automatic
-                                        <span className="font-bold text-emerald-900 bg-emerald-100 px-1.5 py-0.5 rounded mx-1">3% bulk discount</span>
-                                        on your entire order.
-                                    </p>
-                                </div>
-                            </div>
-                            <Link href="/#offers" className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors whitespace-nowrap">
-                                View all offers
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                </svg>
-                            </Link>
-                        </div>
-                    </div>
                 </div>
             )}
-        </div>
+
+            {isAuthenticated && units.length > 0 && (
+                <div className={`flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-[22px] py-3.5 ${picked.length ? 'bg-[#F0FAF5]' : 'bg-white'}`}>
+                    {units.length > initialRows && (
+                        <button type="button" onClick={() => setShowAll(v => !v)} className="text-sm font-bold text-[#1B5E3B]">
+                            {showAll ? 'Show fewer' : `Show all ${units.length} units`}
+                        </button>
+                    )}
+                    <div className="flex-1" />
+                    <span className={`text-sm ${picked.length ? 'text-[#0B2136]' : 'text-gray-500'}`}>
+                        {picked.length ? `${picked.length} selected · ${inr(pickedTotal)}` : 'Select units to add them by serial'}
+                    </span>
+                    <button type="button" onClick={addPicked} disabled={!picked.length || adding} className={`h-[42px] rounded-full px-[22px] text-sm font-bold ${picked.length ? 'bg-[#0A1F14] text-white' : 'bg-gray-200 text-gray-400'}`}>
+                        {adding ? 'Adding…' : picked.length ? `Add ${picked.length} to cart` : 'Add to cart'}
+                    </button>
+                </div>
+            )}
+        </section>
     );
 }
