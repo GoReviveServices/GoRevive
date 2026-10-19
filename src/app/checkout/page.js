@@ -10,6 +10,8 @@ import SidebarSummary from './components/SidebarSummary';
 import StepperHeader from './components/StepperHeader';
 import Address from './components/Address';
 import Verification from './components/Verification';
+import KycNotice from './components/KycNotice';
+import { getKycState, kycAllowsOrder } from '@/lib/kyc';
 import OwnerSummary from './components/OwnerSummary';
 import Payment from './components/Payment';
 import { computeOrderTotals } from '@/lib/pricing';
@@ -37,7 +39,7 @@ export default function CheckoutPage() {
 
     // Verification State
     const [isVerifying, setIsVerifying] = useState(false);
-    const [isVerified, setIsVerified] = useState(false);
+    const [kyc, setKyc] = useState(null); // { state, missing, remark }
     const [kycData, setKycData] = useState(null);
     const [kycFiles, setKycFiles] = useState({ aadhaar: null, pan: null, gst: null });
     const [isUploadingKyc, setIsUploadingKyc] = useState(false);
@@ -160,15 +162,11 @@ export default function CheckoutPage() {
             if (response.data?.success) {
                 const data = response.data.kycData;
                 setKycData(data);
-                if (data.aadhar_img && data.pan_img && data.gst_img) {
-                    setIsVerified(true);
-                } else {
-                    setIsVerified(false);
-                }
+                setKyc(response.data.kyc || getKycState(data));
+                return response.data.kyc || getKycState(data);
             }
         } catch (error) {
             toast.error("Could not verify B2B status.");
-            setIsVerified(false);
         } finally {
             setIsVerifying(false);
         }
@@ -207,9 +205,15 @@ export default function CheckoutPage() {
             });
 
             if (response.data.success) {
-                toast.success("Documents verified successfully!", { id: toastId });
-                setIsVerified(true);
-                setKycData({ ...kycData, aadhar_img: 'uploaded', pan_img: 'uploaded', gst_img: 'uploaded' });
+                toast.success("Documents uploaded. They will be reviewed by our team.", { id: toastId });
+                setKycFiles({ aadhaar: null, pan: null, gst: null });
+                // Re-read the status from the server instead of assuming it is approved.
+                const fresh = await fetchKycStatus();
+                if (!fresh || fresh.state === 'missing') {
+                    const uploadedData = { ...kycData, aadhar_img: 'uploaded', pan_img: 'uploaded', gst_img: 'uploaded', kyc_status: kycData?.kyc_status || 'PENDING' };
+                    setKycData(uploadedData);
+                    setKyc(getKycState(uploadedData));
+                }
             } else {
                 toast.error(response.data.message || "Upload failed.", { id: toastId });
             }
@@ -221,7 +225,7 @@ export default function CheckoutPage() {
     };
 
     const handleProceedToSummary = () => {
-        if (!isVerified) return toast.error("You must complete verification first.");
+        if (!kycAllowsOrder(kyc)) return toast.error("Please upload your business documents first.");
 
         const outOfStockIds = cartItems
             .filter(item => item.product.isStock !== "Available" || item.product.stock < item.quantity)
@@ -282,6 +286,8 @@ export default function CheckoutPage() {
         } catch (error) {
             const message = error.response?.data?.message || 'Network error while connecting to bank.';
             if (error.response?.data?.unavailable) setUnavailableItems(error.response.data.unavailable);
+            // Documents went missing since step 2: send the buyer back to upload them.
+            if (error.response?.data?.code === 'KYC_MISSING') { setCurrentStep(2); fetchKycStatus(); }
             toast.error(message, { id: toastId });
             setIsInitiatingPayment(false);
         }
@@ -324,7 +330,7 @@ export default function CheckoutPage() {
                         {currentStep === 2 && (
                             <Verification
                                 isVerifying={isVerifying}
-                                isVerified={isVerified}
+                                kyc={kyc}
                                 kycData={kycData}
                                 isUploadingKyc={isUploadingKyc}
                                 handleKycUpload={handleKycUpload}
@@ -335,6 +341,8 @@ export default function CheckoutPage() {
 
                         {/* STEP 3: ORDER SUMMARY */}
                         {currentStep === 3 && (
+                            <>
+                            {(kyc?.state === 'pending' || kyc?.state === 'rejected') && <div className="mb-4"><KycNotice kyc={kyc} compact /></div>}
                             <OwnerSummary
                                 cartItems={cartItems}
                                 formatCurrency={formatCurrency}
@@ -344,6 +352,7 @@ export default function CheckoutPage() {
                                 removeFromCart={removeFromCart}
                                 warrantyIds={warrantyIds}
                             />
+                            </>
                         )}
 
                         {/* STEP 4: PAYMENT */}

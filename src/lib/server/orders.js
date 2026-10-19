@@ -5,6 +5,8 @@ import { imageUrl } from '@/lib/site';
 import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
 import { warrantyPrice, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
 import { getCartCategoryResolver } from './inventory';
+import { fetchKycState } from './kyc';
+import { kycAllowsOrder, kycHoldsDispatch } from '@/lib/kyc';
 
 // ---------------------------------------------------------------------------
 // Cart, wallet and address — always read from PHP for the signed-in user.
@@ -88,11 +90,18 @@ const istTimestamp = (d = new Date()) => {
  * Returns the order snapshot that payment and invoicing are checked against.
  */
 export async function createOrder(user, { addressId, gateway, warrantyIds = [] }) {
-    const [items, walletBalance, address] = await Promise.all([
+    const [items, walletBalance, address, kyc] = await Promise.all([
         getServerCart(user.crm_party_code),
         getWalletBalance(user.crm_party_code),
         resolveAddress(user, addressId),
+        fetchKycState(user.crm_party_code),
     ]);
+
+    // Business documents must be uploaded. They do not have to be approved yet:
+    // an order with pending documents is accepted but held for dispatch.
+    if (!kyc) throw new OrderError('We could not check your business documents. Please try again in a moment.');
+    if (!kycAllowsOrder(kyc)) throw new OrderError('Please upload your business documents (Aadhaar, PAN and GST certificate) before placing an order.', { code: 'KYC_MISSING' });
+    const holdDispatch = kycHoldsDispatch(kyc);
 
     if (items.length === 0) throw new OrderError('Your cart is empty.');
     if (!address) throw new OrderError('Please choose a valid shipping address.');
@@ -130,9 +139,11 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
                 payment_mode: paymentMode,
                 cod_charges: '',
                 ...warrantyTotals(totals),
-                payment_remark: totals.warrantyUnits
-                    ? `B2B Website Order. Extended warranty (${EXT_WARRANTY_MONTHS} months) on ${totals.warrantyUnits} unit(s): Rs ${totals.warranty}`
-                    : 'B2B Website Order',
+                payment_remark:
+                    (totals.warrantyUnits
+                        ? `B2B Website Order. Extended warranty (${EXT_WARRANTY_MONTHS} months) on ${totals.warrantyUnits} unit(s): Rs ${totals.warranty}`
+                        : 'B2B Website Order') +
+                    (holdDispatch ? '. KYC documents not yet approved: hold dispatch until approved.' : ''),
                 crm_party_code: user.crm_party_code,
                 party_name: user.cust_name,
                 party_mobile: user.mobile,
@@ -162,6 +173,7 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
         warrantyUnits: totals.warrantyUnits,
         fingerprint: cartFingerprint(items, warranty),
         address,
+        kycState: kyc.state,
     };
 }
 
