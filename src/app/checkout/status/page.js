@@ -33,8 +33,10 @@ function StatusContent() {
 
         // The server checks the payment with the bank, matches the amount to the
         // order it created, and creates the invoice exactly once.
+        console.log('[checkout-debug] status page: asking server to verify', { orderId });
         api.post('/payment/verify', { orderId })
             .then(({ data }) => {
+                console.log('[checkout-debug] /api/payment/verify reply', data);
                 if (data?.success && data?.isPaid) {
                     clearCart();
                     setStatus('success');
@@ -44,6 +46,7 @@ function StatusContent() {
                 }
             })
             .catch((error) => {
+                console.log('[checkout-debug] /api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
                 setStatus('failed');
                 setErrorMessage(error.response?.data?.message || "Network error during verification.");
             });

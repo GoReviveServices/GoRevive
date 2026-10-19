@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { phpPost, isTrue } from './php';
 import { imageUrl } from '@/lib/site';
 import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
+import { dlog } from '@/lib/server/debug';
 import { warrantyDays, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
 import { getCartCategoryResolver } from './inventory';
 import { fetchKycState } from './kyc';
@@ -90,12 +91,20 @@ const istTimestamp = (d = new Date()) => {
  * Returns the order snapshot that payment and invoicing are checked against.
  */
 export async function createOrder(user, { addressId, gateway, warrantyIds = [] }) {
+    dlog('createOrder: start', { user: user.crm_party_code, addressId, gateway, warrantyIds });
     const [items, walletBalance, address, kyc] = await Promise.all([
         getServerCart(user.crm_party_code),
         getWalletBalance(user.crm_party_code),
         resolveAddress(user, addressId),
         fetchKycState(user.crm_party_code),
     ]);
+    dlog('createOrder: inputs read from PHP', {
+        cartLines: items.length,
+        units: items.reduce((n, i) => n + i.quantity, 0),
+        walletBalance,
+        address,
+        kycState: kyc?.state ?? null,
+    });
 
     // Business documents must be uploaded. They do not have to be approved yet:
     // the accounts team verifies them manually, so approval is not checked here.
@@ -114,6 +123,7 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
     const warranty = [...new Set((Array.isArray(warrantyIds) ? warrantyIds : []).map(String))].filter((id) => cartIds.has(id));
     const totals = computeOrderTotals(items, walletBalance, warranty);
     if (totals.units < MIN_ORDER_UNITS) throw new OrderError(`Minimum order is ${MIN_ORDER_UNITS} units.`);
+    dlog('createOrder: totals (server-side)', totals);
     const orderId = `GR_${user.crm_party_code}_${Date.now()}`;
     const orderDate = istTimestamp();
     const paymentMode = totals.payable === 0 ? 'Wallet' : gateway;
@@ -156,6 +166,7 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
         throw new OrderError(po?.message || po?.response?.message || 'Failed to create purchase order.');
     }
     console.info('PO created', { orderId, status: po?.status ?? po?.response?.status });
+    dlog('createOrder: PO accepted, order snapshot ready', { orderId, payable: totals.payable, total: totals.total });
 
     return {
         orderId,
@@ -179,9 +190,13 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
  * Re-reads the cart and refuses if it no longer matches what was paid for.
  */
 export async function completeOrder(user, order, paymentReference) {
+    dlog('completeOrder: start', { orderId: order.orderId, paymentReference, payable: order.payable, total: order.total });
     const items = await getServerCart(user.crm_party_code);
     const warranty = order.warrantyIds || [];
-    if (cartFingerprint(items, warranty) !== order.fingerprint) {
+    const nowFingerprint = cartFingerprint(items, warranty);
+    dlog('completeOrder: cart re-read', { cartLines: items.length, fingerprintMatches: nowFingerprint === order.fingerprint });
+    if (nowFingerprint !== order.fingerprint) {
+        console.error('completeOrder: cart changed after payment started; no invoice created', { orderId: order.orderId, cartLines: items.length });
         throw new OrderError('Your cart changed after payment started. Our team will contact you to reconcile this order.');
     }
 
@@ -244,6 +259,7 @@ export async function completeOrder(user, order, paymentReference) {
         throw new OrderError(res?.message || res?.response?.message || 'Failed to create invoice.');
     }
     console.info('Invoice created', { orderId: order.orderId, status: res?.status ?? res?.response?.status });
+    dlog('completeOrder: invoice accepted', { orderId: order.orderId });
     return res;
 }
 
@@ -251,8 +267,16 @@ export async function completeOrder(user, order, paymentReference) {
 // Anything that is not a clear success is treated as a rejection, so a PO or
 // invoice that PHP refused is never reported to the buyer as done.
 export function phpRejected(res) {
+    // A string means PHP printed HTML or a warning instead of JSON.
+    if (res === undefined || res === null || typeof res !== 'object') {
+        dlog('PHP reply is not a JSON object (treated as rejected)', { type: typeof res, sample: typeof res === 'string' ? res.slice(0, 500) : res });
+        return true;
+    }
     const status = res?.status ?? res?.response?.status;
-    if (status === undefined || status === null) return false; // no status field: keep the old behaviour
+    if (status === undefined || status === null) {
+        dlog('WARNING: PHP reply has no status field (treated as success)', res);
+        return false;
+    }
     return !['true', 'success', '1', 'ok', '200'].includes(String(status).trim().toLowerCase());
 }
 

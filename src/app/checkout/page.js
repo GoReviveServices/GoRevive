@@ -264,6 +264,7 @@ export default function CheckoutPage() {
 
         try {
             const { data } = await api.post('/checkout', { addressId: selectedAddressId, gateway, option, warrantyIds });
+            console.log('[checkout-debug] /api/checkout reply', { success: data.success, completed: data.completed, orderId: data.orderId, gateway: data.gateway, hasSessionId: Boolean(data.sessionId), hasPaymentUrl: Boolean(data.paymentUrl), message: data.message });
 
             if (!data.success) {
                 toast.error(data.message || 'Failed to start payment.', { id: toastId });
@@ -291,6 +292,7 @@ export default function CheckoutPage() {
             toast.dismiss(toastId);
 
             const result = await cashfree.checkout({ paymentSessionId: data.sessionId, redirectTarget: '_modal' });
+            console.log('[checkout-debug] Cashfree modal finished', { error: result?.error || null, paymentDetails: result?.paymentDetails || null, redirect: Boolean(result?.redirect) });
 
             if (result.error) {
                 toast.error('Payment failed: ' + result.error.message);
@@ -300,6 +302,7 @@ export default function CheckoutPage() {
                 router.push(statusUrl);
             }
         } catch (error) {
+            console.log('[checkout-debug] checkout request failed', { status: error.response?.status, data: error.response?.data, message: error.message });
             const message = error.response?.data?.message || 'Network error while connecting to bank.';
             if (error.response?.data?.unavailable) setUnavailableItems(error.response.data.unavailable);
             // Documents went missing since step 2: send the buyer back to upload them.

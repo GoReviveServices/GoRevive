@@ -1,6 +1,7 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import { signToken, verifyToken, cookieOptions } from './session';
+import { dlog } from './debug';
 
 // The order being paid for is kept in a signed, httpOnly cookie between
 // "create order" and "verify payment". The browser can't read or change it,
@@ -15,11 +16,15 @@ export async function setPendingOrder(response, order) {
 
 export async function getPendingOrder() {
     const token = (await cookies()).get(PENDING_COOKIE)?.value;
-    if (!token) return null;
+    if (!token) {
+        dlog('pending-order cookie is MISSING in this request (not set, expired, blocked or a different browser)');
+        return null;
+    }
     try {
         const payload = await verifyToken(token);
         return payload.typ === 'order' ? payload.order : null;
-    } catch {
+    } catch (error) {
+        dlog('pending-order cookie is present but INVALID', { reason: error.message });
         return null;
     }
 }
