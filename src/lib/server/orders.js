@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { phpPost, isTrue } from './php';
 import { imageUrl } from '@/lib/site';
 import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
-import { warrantyPrice, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
+import { warrantyPrice, warrantyDays, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
 import { getCartCategoryResolver } from './inventory';
 import { fetchKycState } from './kyc';
 import { kycAllowsOrder } from '@/lib/kyc';
@@ -234,6 +234,7 @@ export async function completeOrder(user, order, paymentReference) {
             igst_amount: '0.00',
             price: String(i.product.price),
             item_total: String(i.product.price * i.quantity),
+            warranty_days: String(warrantyDays(warranty.includes(String(i.product.id)))),
             ...warrantyFields(i, warranty),
         })),
     };
