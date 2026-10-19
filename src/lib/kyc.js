@@ -27,5 +27,3 @@ export function getKycState(kycData) {
 
 /** True when the order can go ahead (documents exist), even if not yet approved. */
 export const kycAllowsOrder = (kyc) => kyc?.state && kyc.state !== 'missing';
-/** True when the order will wait for document approval before it is dispatched. */
-export const kycHoldsDispatch = (kyc) => kyc?.state === 'pending' || kyc?.state === 'rejected';
