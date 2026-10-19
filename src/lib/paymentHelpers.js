@@ -1,7 +1,33 @@
 import 'server-only';
 import axios from 'axios';
+import { dlog } from '@/lib/server/debug';
 
 const gatewayHttp = axios.create({ timeout: 20000 });
+
+// What the app is configured to talk to (no secrets): enough to spot test keys
+// on the production URL, an http return URL, or a missing variable.
+function cashfreeEnv() {
+    const secret = String(process.env.CASHFREE_SECRET_KEY || '');
+    return {
+        baseUrl: process.env.CASHFREE_BASE_URL,
+        appIdPrefix: String(process.env.CASHFREE_APP_ID || '').slice(0, 4),
+        hasAppId: Boolean(process.env.CASHFREE_APP_ID),
+        keyEnvironment: (secret.match(/^cfsk_ma_(test|prod)/) || [])[1] || (secret ? 'unrecognised' : 'MISSING'),
+        browserMode: process.env.NEXT_PUBLIC_CASHFREE_MODE || '(unset = sandbox)',
+        siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    };
+}
+
+function describeGatewayError(error) {
+    return {
+        message: error.message,
+        code: error.code,
+        httpStatus: error.response?.status,
+        contentType: error.response?.headers?.['content-type'],
+        replyBody: error.response?.data,
+        replyHeaders: error.response?.headers ? { server: error.response.headers.server, 'cf-ray': error.response.headers['cf-ray'], 'x-request-id': error.response.headers['x-request-id'] } : undefined,
+    };
+}
 
 /**
  * ==========================================
@@ -116,6 +142,7 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
             },
         };
 
+        dlog('Cashfree -> create order', { env: cashfreeEnv(), orderId, amount: payload.order_amount, returnUrl, paymentMethods: payload.order_meta.payment_methods, customerId });
         const response = await gatewayHttp.post(`${process.env.CASHFREE_BASE_URL}/orders`, payload, {
             headers: {
                 'x-client-id': process.env.CASHFREE_APP_ID,
@@ -126,11 +153,13 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
         });
 
         const data = response.data;
+        dlog('Cashfree <- create order', { httpStatus: response.status, cfOrderId: data.cf_order_id, orderStatus: data.order_status, hasSessionId: Boolean(data.payment_session_id) });
 
         return {
             sessionId: data.payment_session_id
         };
     } catch (error) {
+        dlog('Cashfree !! create order FAILED', { ...describeGatewayError(error), env: cashfreeEnv() });
         throw new Error(error.response?.data?.message || error.message || "Failed to create Cashfree order");
     }
 }
@@ -162,6 +191,7 @@ export async function verifyCashfreeOrder(orderId) {
             reference: data.cf_order_id || orderId,
         };
     } catch (error) {
+        dlog('Cashfree !! verify order FAILED', { orderId, ...describeGatewayError(error), env: cashfreeEnv() });
         throw new Error(error.response?.data?.message || "Failed to verify Cashfree order status");
     }
 }

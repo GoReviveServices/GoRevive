@@ -90,7 +90,7 @@ const istTimestamp = (d = new Date()) => {
  * Prices the signed-in user's cart on the server and creates the PO in PHP.
  * Returns the order snapshot that payment and invoicing are checked against.
  */
-export async function createOrder(user, { addressId, gateway, warrantyIds = [] }) {
+export async function createOrder(user, { addressId, gateway, warrantyIds = [] }, { beforePO } = {}) {
     dlog('createOrder: start', { user: user.crm_party_code, addressId, gateway, warrantyIds });
     const [items, walletBalance, address, kyc] = await Promise.all([
         getServerCart(user.crm_party_code),
@@ -127,6 +127,10 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
     const orderId = `GR_${user.crm_party_code}_${Date.now()}`;
     const orderDate = istTimestamp();
     const paymentMode = totals.payable === 0 ? 'Wallet' : gateway;
+
+    // The payment session is opened before the PO exists, so a gateway that
+    // refuses to open never leaves a stray PO behind in the backend.
+    if (beforePO) await beforePO({ orderId, orderDate, payable: totals.payable, total: totals.total, gateway: paymentMode });
 
     const po = await phpPost(
         'POCreate.php',

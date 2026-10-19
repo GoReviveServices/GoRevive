@@ -34,7 +34,49 @@ export async function POST(request) {
         // warrantyIds is only the buyer's choice; createOrder checks each id
         // against the cart and prices the warranty itself.
         dlog('checkout: request', { user: user.crm_party_code, addressId, gateway, option, warrantyIds, host: request.headers.get('host'), proto: request.headers.get('x-forwarded-proto') });
-        const order = await createOrder(user, { addressId, gateway, warrantyIds: Array.isArray(warrantyIds) ? warrantyIds.slice(0, 500) : [] });
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+        let payment;
+
+        // The payment session is opened first and the PO is created only once it
+        // exists, so a gateway that will not open never leaves a stray PO behind.
+        const openPaymentSession = async ({ orderId, payable }) => {
+            if (payable === 0) return; // wallet covers everything: no gateway needed
+            const returnUrl = `${baseUrl}/checkout/status?order_id=${encodeURIComponent(orderId)}`;
+
+            if (gateway === 'CASHFREE') {
+                const methods = String(option || '').split(',').map((m) => m.trim()).filter((m) => CASHFREE_METHODS.has(m));
+                payment = await createCashfreeOrder({
+                    orderId,
+                    amount: payable,
+                    customerId: user.crm_party_code,
+                    phone: user.mobile,
+                    email: user.email,
+                    name: user.cust_name,
+                    returnUrl,
+                    payment_methods_filters: methods.length ? methods.join(',') : undefined,
+                });
+            } else {
+                const method = String(option || '').toUpperCase();
+                payment = await createHdfcSession({
+                    orderId,
+                    amount: payable,
+                    customerId: user.crm_party_code,
+                    phone: user.mobile,
+                    email: user.email,
+                    returnUrl,
+                    payment_filter: HDFC_METHODS.has(method)
+                        ? { allowDefaultOptions: false, options: [{ paymentMethodType: method, enable: true }] }
+                        : undefined,
+                });
+            }
+            dlog('checkout: gateway session created', { orderId, gateway, hasSessionId: Boolean(payment.sessionId), hasPaymentUrl: Boolean(payment.paymentUrl), returnUrl });
+        };
+
+        const order = await createOrder(
+            user,
+            { addressId, gateway, warrantyIds: Array.isArray(warrantyIds) ? warrantyIds.slice(0, 500) : [] },
+            { beforePO: openPaymentSession }
+        );
 
         // Wallet covers everything: no gateway, finish now.
         if (order.payable === 0) {
@@ -43,38 +85,6 @@ export async function POST(request) {
             return NextResponse.json({ success: true, completed: true, orderId: order.orderId, gateway: 'WALLET' });
         }
 
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
-        const returnUrl = `${baseUrl}/checkout/status?order_id=${encodeURIComponent(order.orderId)}`;
-        let payment;
-
-        if (gateway === 'CASHFREE') {
-            const methods = String(option || '').split(',').map((m) => m.trim()).filter((m) => CASHFREE_METHODS.has(m));
-            payment = await createCashfreeOrder({
-                orderId: order.orderId,
-                amount: order.payable,
-                customerId: user.crm_party_code,
-                phone: user.mobile,
-                email: user.email,
-                name: user.cust_name,
-                returnUrl,
-                payment_methods_filters: methods.length ? methods.join(',') : undefined,
-            });
-        } else {
-            const method = String(option || '').toUpperCase();
-            payment = await createHdfcSession({
-                orderId: order.orderId,
-                amount: order.payable,
-                customerId: user.crm_party_code,
-                phone: user.mobile,
-                email: user.email,
-                returnUrl,
-                payment_filter: HDFC_METHODS.has(method)
-                    ? { allowDefaultOptions: false, options: [{ paymentMethodType: method, enable: true }] }
-                    : undefined,
-            });
-        }
-
-        dlog('checkout: gateway session created', { orderId: order.orderId, gateway, hasSessionId: Boolean(payment.sessionId), hasPaymentUrl: Boolean(payment.paymentUrl), returnUrl });
         const response = NextResponse.json({
             success: true,
             completed: false,
