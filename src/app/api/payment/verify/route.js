@@ -31,6 +31,8 @@ export async function POST(request) {
         // No pending order (e.g. the page was refreshed after completion):
         // report the gateway's status but never create another invoice here.
         if (!order || order.orderId !== orderId) {
+            // Money may have been taken but there is nothing to build an invoice from.
+            console.error('Verify: no matching pending order, no invoice will be created', { orderId, hasPendingCookie: Boolean(order), cookieOrderId: order?.orderId });
             for (const gateway of ['CASHFREE', 'HDFC']) {
                 try {
                     const result = await verifyWithGateway(gateway, orderId);

@@ -153,9 +153,11 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
         },
         { raw: true }
     );
-    if (po?.status === 'false' || po?.response?.status === 'false') {
+    if (phpRejected(po)) {
+        console.error('POCreate.php rejected the order', { orderId, response: po });
         throw new OrderError(po?.message || po?.response?.message || 'Failed to create purchase order.');
     }
+    console.info('PO created', { orderId, status: po?.status ?? po?.response?.status });
 
     return {
         orderId,
@@ -240,10 +242,21 @@ export async function completeOrder(user, order, paymentReference) {
     };
 
     const res = await phpPost('invoice_creation.php', { BillJSON: payload }, { raw: true });
-    if (res?.status === 'false' || res?.response?.status === 'false') {
+    if (phpRejected(res)) {
+        console.error('invoice_creation.php rejected the invoice', { orderId: order.orderId, response: res });
         throw new OrderError(res?.message || res?.response?.message || 'Failed to create invoice.');
     }
+    console.info('Invoice created', { orderId: order.orderId, status: res?.status ?? res?.response?.status });
     return res;
+}
+
+// PHP says "true"/"false" but the case and type vary ("False", false, 0, "error").
+// Anything that is not a clear success is treated as a rejection, so a PO or
+// invoice that PHP refused is never reported to the buyer as done.
+export function phpRejected(res) {
+    const status = res?.status ?? res?.response?.status;
+    if (status === undefined || status === null) return false; // no status field: keep the old behaviour
+    return !['true', 'success', '1', 'ok', '200'].includes(String(status).trim().toLowerCase());
 }
 
 // Extended warranty on the PO/invoice. The order total already includes it.
