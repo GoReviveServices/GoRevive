@@ -135,12 +135,16 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
                 customer_name: name || "website Customer"
             },
             order_meta: {
-                return_url: returnUrl,
+                // Cashfree's gateway answers 403 to an http://localhost return_url, so it is
+                // only sent when it is https. The payment pop-up does not need it: the site
+                // goes to the status page itself when the pop-up finishes.
+                ...(String(returnUrl || '').startsWith('https://') ? { return_url: returnUrl } : {}),
                 payment_methods: typeof payment_methods_filters === 'string' 
                     ? payment_methods_filters 
                     : payment_methods_filters?.methods?.values || undefined
             },
         };
+        if (!payload.order_meta.return_url) dlog('Cashfree: return_url left out because it is not https', { returnUrl });
 
         dlog('Cashfree -> create order', { env: cashfreeEnv(), orderId, amount: payload.order_amount, returnUrl, paymentMethods: payload.order_meta.payment_methods, customerId });
         const response = await gatewayHttp.post(`${process.env.CASHFREE_BASE_URL}/orders`, payload, {
