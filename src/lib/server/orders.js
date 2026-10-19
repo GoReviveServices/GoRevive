@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { phpPost, isTrue } from './php';
 import { imageUrl } from '@/lib/site';
 import { computeOrderTotals, MIN_ORDER_UNITS } from '@/lib/pricing';
-import { warrantyPrice, warrantyDays, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
+import { warrantyDays, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RATE } from '@/lib/warranty';
 import { getCartCategoryResolver } from './inventory';
 import { fetchKycState } from './kyc';
 import { kycAllowsOrder } from '@/lib/kyc';
@@ -129,7 +129,6 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
                     item_category: i.product.condition || i.product.category || 'Unknown',
                     item_name: i.product.name || '',
                     item_price: i.product.price,
-                    ...warrantyFields(i, warranty),
                 })),
                 order_no: orderId,
                 order_date: orderDate,
@@ -137,7 +136,6 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
                 tot_amount: totals.total,
                 payment_mode: paymentMode,
                 cod_charges: '',
-                ...warrantyTotals(totals),
                 payment_remark: totals.warrantyUnits
                     ? `B2B Website Order. Extended warranty (${EXT_WARRANTY_MONTHS} months) on ${totals.warrantyUnits} unit(s): Rs ${totals.warranty}`
                     : 'B2B Website Order',
@@ -237,7 +235,6 @@ export async function completeOrder(user, order, paymentReference) {
             price: String(i.product.price),
             item_total: String(i.product.price * i.quantity),
             warranty_days: warrantyDays(warranty.includes(String(i.product.id))),
-            ...warrantyFields(i, warranty),
         })),
     };
 
@@ -259,10 +256,10 @@ export function phpRejected(res) {
     return !['true', 'success', '1', 'ok', '200'].includes(String(status).trim().toLowerCase());
 }
 
-// Extended warranty on the PO/invoice. The order total already includes it.
-// The totals use the invoice's existing extra-charge fields; the per-line
-// fields tell the backend which units are covered. Confirm with the PHP team
-// that invoice_creation.php and POCreate.php store and print these.
+// Extended warranty on the invoice, using its existing extra-charge fields
+// (extra_charges / extra_per / extra_amt). The order total already includes it.
+// The PO carries the warranty only in payment_remark: POCreate.php takes no
+// extra-charge or per-line warranty fields.
 function warrantyTotals({ warranty, warrantyUnits }) {
     return warranty > 0
         ? {
@@ -271,14 +268,6 @@ function warrantyTotals({ warranty, warrantyUnits }) {
             extra_amt: warranty,
         }
         : { extra_charges: '', extra_per: 0, extra_amt: 0 };
-}
-
-function warrantyFields(item, warrantyIds) {
-    const covered = warrantyIds.includes(String(item.product.id));
-    return {
-        ext_warranty_months: covered ? String(EXT_WARRANTY_MONTHS) : '0',
-        ext_warranty_amount: covered ? String(warrantyPrice(item.product.price) * item.quantity) : '0',
-    };
 }
 
 export class OrderError extends Error {
