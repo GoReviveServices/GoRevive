@@ -1,0 +1,92 @@
+diff --git a/.env.example b/.env.example
+index 5ba2fba..90fc8e6 100644
+--- a/.env.example
++++ b/.env.example
+@@ -42,8 +42,9 @@ INVENTORY_CACHE_MS=60000
+ CASHFREE_BASE_URL=https://api.cashfree.com/pg
+ CASHFREE_APP_ID=
+ CASHFREE_SECRET_KEY=
+-# "production" for live payments, anything else = sandbox
+-NEXT_PUBLIC_CASHFREE_MODE=production
++# Cashfree mode is derived from CASHFREE_BASE_URL (no separate setting needed):
++#   live:    https://api.cashfree.com/pg
++#   sandbox: https://sandbox.cashfree.com/pg   (use sandbox App ID / Secret with it)
+ 
+ HDFC_BASE_URL=
+ HDFC_API_KEY=
+diff --git a/src/app/api/checkout/route.js b/src/app/api/checkout/route.js
+index 3c432b7..efebed2 100644
+--- a/src/app/api/checkout/route.js
++++ b/src/app/api/checkout/route.js
+@@ -78,6 +78,7 @@ export async function POST(request) {
+             gateway,
+             paymentUrl: payment.paymentUrl,
+             sessionId: payment.sessionId,
++            cashfreeMode: payment.mode,
+         });
+         await setPendingOrder(response, order);
+         return response;
+diff --git a/src/app/checkout/page.js b/src/app/checkout/page.js
+index cdb469e..5cfd66b 100644
+--- a/src/app/checkout/page.js
++++ b/src/app/checkout/page.js
+@@ -266,13 +266,21 @@ export default function CheckoutPage() {
+             }
+ 
+             // Cashfree checkout script is loaded only when the buyer pays.
++            if (!data.sessionId) {
++                toast.error('Payment session could not be created. Please try again.', { id: toastId });
++                setIsInitiatingPayment(false);
++                return;
++            }
++
+             const { load } = await import('@cashfreepayments/cashfree-js');
+-            const cashfree = await load({ mode: process.env.NEXT_PUBLIC_CASHFREE_MODE === 'production' ? 'production' : 'sandbox' });
++            // Use the mode the server created the session in; a mismatch makes Cashfree
++            // reject the session as invalid.
++            const cashfree = await load({ mode: data.cashfreeMode === 'production' ? 'production' : 'sandbox' });
+             toast.dismiss(toastId);
+ 
+             const result = await cashfree.checkout({ paymentSessionId: data.sessionId, redirectTarget: '_modal' });
+ 
+-            if (result.error) {
++            if (result?.error) {
+                 toast.error('Payment failed: ' + result.error.message);
+                 setIsInitiatingPayment(false);
+             } else {
+diff --git a/src/lib/paymentHelpers.js b/src/lib/paymentHelpers.js
+index 4f27080..321e868 100644
+--- a/src/lib/paymentHelpers.js
++++ b/src/lib/paymentHelpers.js
+@@ -127,14 +127,30 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone,
+ 
+         const data = response.data;
+ 
++        if (!data?.payment_session_id) {
++            throw new Error(data?.message || "Cashfree did not return a payment session");
++        }
++
+         return {
+-            sessionId: data.payment_session_id
++            sessionId: data.payment_session_id,
++            // Derived from the same base URL the order was created on, so the
++            // browser SDK can never target a different environment than the server.
++            mode: getCashfreeMode(),
+         };
+     } catch (error) {
+         throw new Error(error.response?.data?.message || error.message || "Failed to create Cashfree order");
+     }
+ }
+ 
++/**
++ * "production" when the server talks to api.cashfree.com, otherwise "sandbox".
++ * A session created on one environment is invalid on the other.
++ */
++export function getCashfreeMode() {
++    const baseUrl = String(process.env.CASHFREE_BASE_URL || '').trim();
++    return /\/\/api\.cashfree\.com/i.test(baseUrl) ? 'production' : 'sandbox';
++}
++
+ 
+ 
+ /**
