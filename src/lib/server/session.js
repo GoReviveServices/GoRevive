@@ -34,6 +34,8 @@ export const pickSessionUser = (u = {}) => ({
     city: u.city ?? '',
     state: u.state ?? '',
     pincode: u.pincode ?? '',
+    // Customer group from the PHP login record: decides Retailer vs Customer pricing.
+    customer_group: String(u.customer_group_id ?? u.customer_group ?? u.user_type ?? u.cust_type ?? ''),
 });
 
 export async function signToken(payload, expiresIn) {
@@ -67,6 +69,18 @@ export async function getSessionUser() {
     } catch {
         return null;
     }
+}
+
+// Groups that are charged Ret_Price. Everyone else (guests included) is charged Cust_Price.
+const RETAILER_GROUPS = (process.env.RETAILER_GROUPS || 'Retailer')
+    .split(',').map((g) => g.trim().toLowerCase()).filter(Boolean);
+
+export const isRetailer = (user) =>
+    Boolean(user) && RETAILER_GROUPS.includes(String(user.customer_group || '').trim().toLowerCase());
+
+/** 'retailer' or 'customer' for the current request. */
+export async function getPriceTier() {
+    return isRetailer(await getSessionUser()) ? 'retailer' : 'customer';
 }
 
 export const unauthorized = () =>

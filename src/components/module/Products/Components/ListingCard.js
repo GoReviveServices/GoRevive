@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/components/utils/Context/AuthContext';
 import SmartImage from '@/components/utils/UI/SmartImage';
 import { productPath } from '@/lib/slug';
 import { withBrand } from '@/lib/site';
@@ -36,21 +35,10 @@ const Seal = ({ size = 22 }) => (
     </svg>
 );
 
-const GuestPrice = ({ off, hasDiscount }) => (
-    <Link href="/login" className="flex items-center justify-between gap-2 group/cta">
-        <span className="flex flex-col leading-tight">
-            <span className="text-[13px] font-extrabold text-[#1B8A4B]">{hasDiscount ? `Up to ${off}% below MRP` : 'Trade pricing'}</span>
-            <span className="text-[13px] font-bold text-[#0A1A0E] group-hover/cta:text-[#1B5E3B]">Login to see price</span>
-        </span>
-        <span className="w-[30px] h-[30px] flex-shrink-0 rounded-full border border-[#D6E2DB] flex items-center justify-center text-[#1B5E3B] group-hover/cta:bg-[#F0FAF5]">
-            <svg aria-hidden="true" className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-        </span>
-    </Link>
-);
+const NoPrice = () => <span className="text-[13px] font-bold text-[#0A1A0E]">Price on request</span>;
 
 /** Grid card for /products. */
 export const ListingCard = React.memo(function ListingCard({ product, priority = false }) {
-    const { isAuthenticated } = useAuth();
     const href = productPath(product);
     const d = derive(product);
 
@@ -77,7 +65,7 @@ export const ListingCard = React.memo(function ListingCard({ product, priority =
                 )}
                 <div className="flex-1" />
                 <div className="border-t border-[#EEF2EF] pt-2.5 mt-1">
-                    {isAuthenticated ? (
+                    {product.startingPrice > 0 ? (
                         <>
                             <div className="flex items-baseline gap-2 flex-wrap">
                                 <span className="text-[20px] font-extrabold tracking-tight text-[#0A1A0E]">{inr(product.startingPrice)}</span>
@@ -86,7 +74,7 @@ export const ListingCard = React.memo(function ListingCard({ product, priority =
                             </div>
                             <div className="text-[11.5px] text-[#4A6355] mt-0.5">From · per unit, excl. GST · {product.totalStock} in stock</div>
                         </>
-                    ) : <GuestPrice off={d.off} hasDiscount={d.hasDiscount} />}
+                    ) : <NoPrice />}
                 </div>
             </div>
         </article>
@@ -95,7 +83,6 @@ export const ListingCard = React.memo(function ListingCard({ product, priority =
 
 /** List row (Flipkart-style) for /products, desktop only. */
 export const ListingRow = React.memo(function ListingRow({ product, priority = false }) {
-    const { isAuthenticated } = useAuth();
     const href = productPath(product);
     const d = derive(product);
     const bullets = [product.baseSpecs?.ram && `RAM: ${product.baseSpecs.ram}`, product.baseSpecs?.storage && `Storage: ${product.baseSpecs.storage}`, product.category && `Category: ${product.category}`].filter(Boolean);
@@ -122,7 +109,7 @@ export const ListingRow = React.memo(function ListingRow({ product, priority = f
                 </ul>
             </div>
             <div className="flex flex-col gap-1">
-                {isAuthenticated ? (
+                {product.startingPrice > 0 ? (
                     <>
                         <span className="text-2xl font-extrabold tracking-tight text-[#0A1A0E]">{inr(product.startingPrice)}</span>
                         {d.hasDiscount && (
@@ -133,7 +120,7 @@ export const ListingRow = React.memo(function ListingRow({ product, priority = f
                         )}
                         <span className="text-xs text-[#4A6355]">Lowest unit price · excl. GST</span>
                     </>
-                ) : <GuestPrice off={d.off} hasDiscount={d.hasDiscount} />}
+                ) : <NoPrice />}
                 <span className={`text-[12.5px] font-bold mt-1.5 ${d.low ? 'text-[#B1401F]' : 'text-[#1B5E3B]'}`}>{d.low ? `Only ${product.totalStock} left` : `${product.totalStock} units in stock`}</span>
                 <span className="text-xs text-[#4A6355]">Min. order {MIN_ORDER_UNITS} units</span>
             </div>

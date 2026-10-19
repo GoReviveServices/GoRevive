@@ -53,13 +53,13 @@ export default function BuyBox({
     return (
         <aside aria-label="Buy" className="flex flex-wrap items-start gap-x-7 gap-y-3.5 rounded-[18px] border-2 border-[#8AE63A] bg-white p-[18px] shadow-[0_20px_50px_-18px_rgba(46,139,87,0.45)]">
             <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-3.5">
-                {isAuthenticated ? (
+                {price > 0 ? (
                     <div>
                         <p className="text-[26px] font-extrabold leading-tight text-[#0B2136]">{inr(unitPrice)}<span className="text-[13px] font-medium text-gray-500"> / unit + GST</span></p>
                         <p className="text-[13px] text-gray-500">{bulk ? `Bulk ${BULK_DISCOUNT_RATE * 100}% off applied (${BULK_DISCOUNT_MIN_UNITS}+ units in order)` : `Bulk ${BULK_DISCOUNT_RATE * 100}% off once your order reaches ${BULK_DISCOUNT_MIN_UNITS} units`}</p>
                     </div>
                 ) : (
-                    <p className="text-xl font-extrabold text-[#0B2136]">Login to see B2B price</p>
+                    <p className="text-xl font-extrabold text-[#0B2136]">Price on request</p>
                 )}
 
                 {/* Delivery */}
@@ -100,7 +100,7 @@ export default function BuyBox({
                     <span className="text-xs text-gray-500">of {left}</span>
                 </div>
 
-                {isAuthenticated && (
+                {price > 0 && (
                     <div className="grid grid-cols-2 overflow-hidden rounded-[10px] border border-gray-200 text-center text-xs">
                         <div className={`flex flex-col gap-0.5 px-1 py-2 ${!bulk ? 'bg-[#F0FAF5]' : 'bg-white'}`}>
                             <span className="text-gray-500">{MIN_ORDER_UNITS}–{BULK_DISCOUNT_MIN_UNITS - 1} units in order</span><b className="text-[13px]">{inr(price)}</b>
@@ -124,7 +124,7 @@ export default function BuyBox({
                             <div className="min-w-0 flex-1 leading-snug">
                                 <p className="text-[15px] font-extrabold">Protect with {EXT_WARRANTY_MONTHS}-month warranty</p>
                                 <p className="text-[13px] font-semibold text-[#8AE63A]">
-                                    {isAuthenticated ? `Only ${inr(perUnitWarranty)} per unit · ${EXT_WARRANTY_RATE * 100}% of price` : 'Available on every laptop'}
+                                    {price > 0 ? `Only ${inr(perUnitWarranty)} per unit · ${EXT_WARRANTY_RATE * 100}% of price` : 'Available on every laptop'}
                                 </p>
                             </div>
                         </div>
@@ -151,7 +151,7 @@ export default function BuyBox({
             </div>
 
             <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-3.5">
-                {isAuthenticated && (
+                {price > 0 && (
                     <p className="flex justify-between border-t border-dashed border-[#D6E2DB] pt-3 text-sm">
                         <span>Total ({qty} {qty === 1 ? 'unit' : 'units'})</span>
                         <b>{inr(devicesTotal + warrantyTotal)} <span className="font-medium text-gray-500">+ GST</span></b>
@@ -169,10 +169,10 @@ export default function BuyBox({
 
                 {isAuthenticated ? (
                     <>
-                        <button type="button" onClick={onAdd} disabled={isAdding || left === 0} className="flex h-[46px] items-center justify-center gap-2 rounded-full bg-[#8AE63A] text-[15px] font-extrabold text-[#0A1F14] shadow-[0_10px_24px_-6px_rgba(111,207,30,0.7)] disabled:opacity-50">
+                        <button type="button" onClick={onAdd} disabled={isAdding || left === 0 || !(price > 0)} className="flex h-[46px] items-center justify-center gap-2 rounded-full bg-[#8AE63A] text-[15px] font-extrabold text-[#0A1F14] shadow-[0_10px_24px_-6px_rgba(111,207,30,0.7)] disabled:opacity-50">
                             <ShoppingCart className="h-[18px] w-[18px]" />Add {qty} to cart
                         </button>
-                        <button type="button" onClick={onBuy} disabled={isAdding || left === 0} className="flex h-[46px] items-center justify-center gap-2 rounded-full bg-[#0A1F14] text-[15px] font-bold text-white disabled:opacity-50">
+                        <button type="button" onClick={onBuy} disabled={isAdding || left === 0 || !(price > 0)} className="flex h-[46px] items-center justify-center gap-2 rounded-full bg-[#0A1F14] text-[15px] font-bold text-white disabled:opacity-50">
                             <Zap className="h-[18px] w-[18px] text-[#8AE63A]" />Buy now
                         </button>
                     </>

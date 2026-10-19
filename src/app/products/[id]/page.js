@@ -1,12 +1,12 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { findBundle, getProductBundles, getUnitsForModel } from '@/lib/server/inventory';
+import { getPriceTier } from '@/lib/server/session';
 import { SITE_URL, SITE_NAME, BASE_OPEN_GRAPH, DEFAULT_OG_IMAGE, withBrand } from '@/lib/site';
 import JsonLd from '@/components/utils/SEO/JsonLd';
 import ProductDetailClient from './ProductDetailClient';
 import { faqSchema } from './productFaq';
 
-// Re-render each product page at most once a minute (ISR).
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 const describe = (p) => {
     const specs = [p.baseSpecs?.ram, p.baseSpecs?.storage].filter(Boolean).join(' / ');
@@ -16,7 +16,6 @@ const describe = (p) => {
         .trim();
 };
 
-// Search engines show ~155 characters; cut on a word boundary, not mid-word.
 const clip = (text, max = 158) => (text.length <= max ? text : `${text.slice(0, text.lastIndexOf(' ', max)).replace(/[,.;:–-]+$/, '')}…`);
 
 export async function generateMetadata({ params }) {
@@ -45,15 +44,16 @@ export default async function ProductPage({ params }) {
     const { id } = await params;
     // If the inventory service is down this throws and app/error.js is shown,
     // instead of a misleading 404 that could get the page dropped from Google.
-    const product = await findBundle(id);
+    const tier = await getPriceTier();
+    const product = await findBundle(id, tier);
     if (!product) notFound();
 
     // Old URLs used the raw model name; send them to the clean slug (301-equivalent).
     if (decodeURIComponent(id) !== product.slug) permanentRedirect(`/products/${product.slug}`);
 
     const [units, bundles] = await Promise.all([
-        getUnitsForModel(product.id).catch(() => []),
-        getProductBundles().catch(() => []),
+        getUnitsForModel(product.id, tier).catch(() => []),
+        getProductBundles(tier).catch(() => []),
     ]);
 
     const related = bundles
@@ -75,7 +75,8 @@ export default async function ProductPage({ params }) {
         itemCondition: 'https://schema.org/RefurbishedCondition',
         // Prices are shown only to signed-in business buyers, so no Offer price
         // is published here. Set PUBLIC_PRICES_IN_SCHEMA=true to include it.
-        ...(process.env.PUBLIC_PRICES_IN_SCHEMA === 'true' && product.startingPrice > 0
+        // Schema only ever publishes the public customer price.
+        ...(process.env.PUBLIC_PRICES_IN_SCHEMA === 'true' && tier === 'customer' && product.startingPrice > 0
             ? {
                 offers: {
                     '@type': 'AggregateOffer',

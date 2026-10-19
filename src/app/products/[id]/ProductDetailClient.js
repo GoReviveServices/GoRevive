@@ -179,7 +179,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                             galleryImages={galleryImages}
                             altText={`Pre-Owned ${title}`}
                             badge={`Certified${selectedGrade ? ` · Grade ${selectedGrade}` : ''}`}
-                            discountPct={isAuthenticated ? discountPct : 0}
+                            discountPct={discountPct}
                             qcHref={representativeUnit ? `/qc/${representativeUnit.serialNumber || representativeUnit.id}` : null}
                         />
                     </div>
@@ -208,7 +208,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
 
                         {/* Price */}
                         <div className="border-t border-gray-100 pt-4">
-                            {isAuthenticated ? (
+                            {price > 0 ? (
                                 <>
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                         {hasDiscount && <span className="text-[26px] font-extrabold text-[#1B8A4B]">-{discountPct}%</span>}
@@ -224,13 +224,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                                     </p>
                                 </>
                             ) : (
-                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] bg-[#F0FAF5] px-4 py-3.5">
-                                    <div>
-                                        <p className="text-xl font-extrabold text-[#0B2136]">{hasDiscount ? `Up to ${discountPct}% below MRP` : 'B2B pricing'}</p>
-                                        <p className="text-[13px] text-gray-600">B2B prices are visible to verified business accounts.</p>
-                                    </div>
-                                    <Link href={loginHref} className="rounded-full bg-[#0A1F14] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1B5E3B]">Login to see price</Link>
-                                </div>
+                                <p className="text-xl font-extrabold text-[#0B2136]">Price on request</p>
                             )}
                         </div>
 
@@ -239,7 +233,7 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
                             onSelect={(g) => { setSelectedGrade(g); setQuickQty(1); }}
                             pricesByGrade={lowestPriceByGrade}
                             stockByGrade={stockByGrade}
-                            showPrices={isAuthenticated}
+                            showPrices
                         />
 
                         {Object.keys(specOptions).length > 0 && (
@@ -324,22 +318,22 @@ export default function ProductDetailClient({ product: baseProduct, initialUnits
             <div className="sticky bottom-0 z-40 mt-8 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-6px_20px_rgba(10,31,20,0.08)] backdrop-blur lg:hidden">
                 <div className="flex items-center gap-3">
                     <div className="min-w-0 flex-1">
-                        {isAuthenticated ? (
+                        {price > 0 ? (
                             <>
                                 <p className="text-lg font-extrabold leading-none text-[#0B2136]">{formatCurrency(devicesTotal + warrantyTotal || price)}</p>
                                 <p className="mt-0.5 truncate text-[11px] text-gray-500">{qty} unit{qty > 1 ? 's' : ''}{warrantyOn ? ' + warranty' : ''} · + GST</p>
                             </>
                         ) : (
-                            <p className="text-sm font-bold text-[#0B2136]">Login to see B2B price</p>
+                            <p className="text-sm font-bold text-[#0B2136]">Price on request</p>
                         )}
                     </div>
                     <button
                         type="button"
                         onClick={() => handleQuickAdd(false)}
-                        disabled={isAdding || (isAuthenticated && left === 0)}
+                        disabled={isAdding || (isAuthenticated && (left === 0 || !(price > 0)))}
                         className="h-11 rounded-full bg-[#8AE63A] px-6 text-sm font-bold text-[#0A1F14] disabled:opacity-50"
                     >
-                        {isAuthenticated ? `Add ${qty} to cart` : 'Login'}
+                        {isAuthenticated ? `Add ${qty} to cart` : 'Login to buy'}
                     </button>
                 </div>
             </div>

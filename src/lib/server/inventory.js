@@ -7,19 +7,19 @@ import { imageUrl } from '@/lib/site';
 const ASC_CODE = process.env.PHP_ASC_CODE || 'GRWHDL001';
 const INVENTORY_TTL_MS = Number(process.env.INVENTORY_CACHE_MS || 60000);
 
-// The single price field a customer is charged. Listing, detail page, cart,
-// PO, payment and invoice all read the price through unitPrice() so they can
-// never disagree again. Confirm with the backend team which field is correct.
-const PRICE_FIELD = process.env.PRICE_FIELD || 'Cust_Price';
 
-export const unitPrice = (item) => Number(item?.[PRICE_FIELD]) || 0;
+const tierOf = (tier) => (tier === 'retailer' ? 'retailer' : 'customer');
+
+export const priceFor = (item, tier = 'customer') => Number(tierOf(tier) === 'retailer' ? item?.Ret_Price : item?.Cust_Price) || 0;
+
+export const unitPrice = (item) => priceFor(item, 'customer');
+const realMrp = (item) => (Number(item?.MRP) > 0 ? Number(item.MRP) : 0);
 
 const EMPTY_FILTERS = {
     model_code: '', stock_type: '', imei: '', brand_id: '', phone_version: '', hot_deals: '',
     color: '', memory: '', model_name: '', user_type_app: '', search: '', price: '',
 };
 
-/** Full raw inventory from PHP, cached for INVENTORY_TTL_MS. */
 export function getRawInventory() {
     return cached('inventory:raw', INVENTORY_TTL_MS, async () => {
         const payload = await phpPost('getStock_IMEI.php', { asc_code: ASC_CODE, ...EMPTY_FILTERS });
@@ -43,9 +43,10 @@ export const cleanStorage = (value) =>
         .filter((part) => part && !/^(n\/?a|na|-)$/i.test(part))
         .join(' + ');
 
-export function toUnit(item) {
-    const price = unitPrice(item);
-    const mrp = Number(item.MRP) > 0 ? Number(item.MRP) : Math.round(price * 1.2);
+export function toUnit(item, tier = 'customer') {
+    console.log('toUnit', item, tier);
+    const price = priceFor(item, tier);
+    const mrp = realMrp(item);
     const id = item.imei1 || item.imei || '';
     return {
         id,
@@ -75,8 +76,6 @@ export function toUnit(item) {
     };
 }
 
-// Cart lines carry the grade, not the product category, so work the category
-// out for them: by unit id, then by model code, then from the product name.
 const LAPTOP_NAME = /\b(laptop|notebook|macbook|thinkpad|elitebook|probook|zbook|latitude|inspiron|ideapad|vostro|chromebook|vivobook|zenbook|travelmate)\b/i;
 
 export async function getCartCategoryResolver() {
@@ -94,9 +93,10 @@ export async function getCartCategoryResolver() {
         (LAPTOP_NAME.test(String(line.productName || '')) ? 'Laptop' : '');
 }
 
-/** Inventory grouped into product bundles (one card per model). Cached. */
-export function getProductBundles() {
-    return cached('inventory:bundles', INVENTORY_TTL_MS, async () => {
+/** Inventory grouped into product bundles (one card per model). Cached per price tier. */
+export function getProductBundles(tier = 'customer') {
+    tier = tierOf(tier);
+    return cached(`inventory:bundles:${tier}`, INVENTORY_TTL_MS, async () => {
         const raw = await getRawInventory();
         const groups = new Map();
         const slugOwners = new Map();
@@ -104,8 +104,8 @@ export function getProductBundles() {
         for (const item of raw) {
             const key = item.model;
             if (!key) continue;
-            const price = unitPrice(item);
-            const mrp = Number(item.MRP) > 0 ? Number(item.MRP) : Math.round(price * 1.2);
+            const price = priceFor(item, tier);
+            const mrp = realMrp(item);
 
             let bundle = groups.get(key);
             if (!bundle) {
@@ -147,8 +147,8 @@ export function getProductBundles() {
 }
 
 /** Find a bundle by its slug, or by the old model-name URL (for redirects). */
-export async function findBundle(param) {
-    const bundles = await getProductBundles();
+export async function findBundle(param, tier = 'customer') {
+    const bundles = await getProductBundles(tier);
     const decoded = decodeURIComponent(param || '');
     return (
         bundles.find((b) => b.slug === decoded) ||
@@ -159,25 +159,26 @@ export async function findBundle(param) {
 }
 
 /** All serialized units for one model. */
-export async function getUnitsForModel(modelKey) {
+export async function getUnitsForModel(modelKey, tier = 'customer') {
     const raw = await getRawInventory();
     return raw
         .filter((i) => i.model === modelKey || i.model_code === modelKey || i.common_model === modelKey)
         .filter((i) => i.imei1 || i.imei)
-        .map(toUnit);
+        .map((i) => toUnit(i, tier));
 }
 
 /**
  * Look up in-stock units by serial/IMEI.
  * Returns a Map of id -> { unit, raw } (ids not in stock are absent).
+ * `raw` includes purchase_price: server-side only, never send it to the browser.
  */
-export async function getUnitsByIds(ids) {
+export async function getUnitsByIds(ids, tier = 'customer') {
     const wanted = new Set(ids.map(String));
     const raw = await getRawInventory();
     const found = new Map();
     for (const item of raw) {
         const id = String(item.imei1 || item.imei || '');
-        if (wanted.has(id) && !found.has(id)) found.set(id, { unit: toUnit(item), raw: item });
+        if (wanted.has(id) && !found.has(id)) found.set(id, { unit: toUnit(item, tier), raw: item });
     }
     return found;
 }

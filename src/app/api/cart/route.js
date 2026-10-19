@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { phpPost, isTrue } from '@/lib/server/php';
-import { getSessionUser, unauthorized } from '@/lib/server/session';
+import { getSessionUser, unauthorized, isRetailer } from '@/lib/server/session';
 import { getServerCart } from '@/lib/server/orders';
 import { getUnitsByIds } from '@/lib/server/inventory';
 
@@ -38,10 +38,13 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: 'Select between 1 and 50 units.' }, { status: 400 });
         }
 
+        // Retailers are charged Ret_Price, customers Cust_Price.
+        const tier = isRetailer(user) ? 'retailer' : 'customer';
         let lines;
         if (action === 'P') {
-            const found = await getUnitsByIds(ids);
-            const missing = ids.filter((id) => !found.has(id));
+            const found = await getUnitsByIds(ids, tier);
+            // A unit with no price for this user (e.g. Ret_Price 0) can't be bought.
+            const missing = ids.filter((id) => !found.has(id) || !(found.get(id).unit.price > 0));
             if (missing.length) {
                 return NextResponse.json({ success: false, message: 'Some units are no longer available.', unavailable: missing }, { status: 409 });
             }
@@ -52,11 +55,16 @@ export async function POST(request) {
             });
         } else {
             // Removing: use what is already in this user's cart.
-            const cart = await getServerCart(user.crm_party_code);
+            const [cart, stock] = await Promise.all([
+                getServerCart(user.crm_party_code),
+                getUnitsByIds(ids, tier).catch(() => new Map()),
+            ]);
             const inCart = new Map(cart.map((i) => [String(i.product.id), i.product]));
             lines = ids.filter((id) => inCart.has(id)).map((id) => {
                 const p = inCart.get(id);
-                return { id, model_code: p.model_code, condition: p.condition, price: p.price, purchase: p.mrp || p.price * 0.7, seller: p.seller_cod };
+                // purchase_price is read server-side only and goes straight to PHP.
+                const purchase = Number(stock.get(id)?.raw?.purchase_price) || p.price * 0.7;
+                return { id, model_code: p.model_code, condition: p.condition, price: p.price, purchase, seller: p.seller_cod };
             });
             if (lines.length === 0) return NextResponse.json({ success: true, message: 'Nothing to remove.' });
         }

@@ -25,8 +25,8 @@ export async function getServerCart(crmPartyCode) {
             productCategory,
             warrantyEligible: isWarrantyEligible(productCategory),
             brand: item.brand,
-            price: Number(item.price || item.purchase_price) || 0,
-            mrp: Number(item.purchase_price) || 0,
+            // Never fall back to purchase_price: this object is sent to the browser.
+            price: Number(item.price) || 0,
             stock: item.stock_qty ? Number(item.stock_qty) : 1,
             image: imageUrl(item.productImgUrl),
             condition: item.item_category,

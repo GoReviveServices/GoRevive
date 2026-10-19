@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { getProductBundles } from '@/lib/server/inventory';
 import { getBanners } from '@/lib/server/banners';
+import { getPriceTier } from '@/lib/server/session';
 import { SITE_URL, pageMetadata, pluralize } from '@/lib/site';
 import JsonLd from '@/components/utils/SEO/JsonLd';
 import { ProductSkeleton } from '@/components/module/Products/Components/ProductSkeleton';
@@ -52,8 +53,10 @@ const GridFallback = () => (
 );
 
 export default async function ProductsPage() {
+    // Retailers see Ret_Price, everyone else Cust_Price.
+    const tier = await getPriceTier();
     const [products, banners] = await Promise.all([
-        getProductBundles().catch(() => []),
+        getProductBundles(tier).catch(() => []),
         getBanners().catch(() => []),
     ]);
 

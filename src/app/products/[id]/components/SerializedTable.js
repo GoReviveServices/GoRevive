@@ -71,7 +71,7 @@ export default function SerializedTable({ matchingUnits, withWarranty = false, g
             ) : !isAuthenticated ? (
                 <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F0FAF5]"><Lock className="h-6 w-6 text-[#1B5E3B]" /></span>
-                    <p className="font-bold text-[#0B2136]">Login to view serial numbers and B2B pricing</p>
+                    <p className="font-bold text-[#0B2136]">Login to pick units by serial number</p>
                     <Link href="/login" className="rounded-full bg-[#0A1F14] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#1B5E3B]">Login to continue</Link>
                 </div>
             ) : (

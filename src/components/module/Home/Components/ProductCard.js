@@ -1,7 +1,6 @@
 "use client";
 
 import React from 'react';
-import { useAuth } from '@/components/utils/Context/AuthContext';
 import Link from 'next/link';
 import SmartImage from '@/components/utils/UI/SmartImage';
 import { productPath } from '@/lib/slug';
@@ -20,7 +19,6 @@ const GRADE_COLORS = {
 };
 
 export const ProductCard = React.memo(function ProductCard({ product, priority = false }) {
-    const { isAuthenticated } = useAuth();
     const href = productPath(product);
     const altText = `Pre-Owned ${withBrand(product.brand, product.model)}`;
 
@@ -94,7 +92,7 @@ export const ProductCard = React.memo(function ProductCard({ product, priority =
                 <div className="flex-grow" />
 
                 <div className="mt-3 pt-3 border-t border-gray-100">
-                    {isAuthenticated ? (
+                    {product.startingPrice > 0 ? (
                         <div className="flex flex-col gap-0.5">
                             <div className="flex items-baseline gap-2 flex-wrap">
                                 <span className="text-[19px] md:text-[21px] font-black text-[#0B2136] tracking-tight leading-none">
@@ -113,24 +111,7 @@ export const ProductCard = React.memo(function ProductCard({ product, priority =
                             )}
                         </div>
                     ) : (
-                        <Link
-                            href="/login"
-                            className="flex items-center justify-between gap-2 group/cta"
-                        >
-                            <div className="flex flex-col gap-0.5">
-                                <span className="text-[10px] text-gray-400 font-medium">
-                                    {hasDiscount ? `Up to ${discountPercent}% below retail` : 'Trade pricing'}
-                                </span>
-                                <span className="text-[13px] font-bold text-[#0B2136] group-hover/cta:text-[#1B5E3B] transition-colors">
-                                    Login to view price
-                                </span>
-                            </div>
-                            <span className="flex items-center justify-center w-7 h-7 rounded-full border border-gray-200 group-hover/cta:border-[#1B5E3B] group-hover/cta:bg-[#F0FAF5] transition-colors flex-shrink-0">
-                                <svg className="w-3.5 h-3.5 text-[#0B2136] group-hover/cta:text-[#1B5E3B] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                </svg>
-                            </span>
-                        </Link>
+                        <span className="text-[13px] font-bold text-[#0B2136]">Price on request</span>
                     )}
                 </div>
 
