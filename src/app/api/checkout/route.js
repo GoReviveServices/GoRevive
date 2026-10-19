@@ -92,6 +92,7 @@ export async function POST(request) {
             gateway,
             paymentUrl: payment.paymentUrl,
             sessionId: payment.sessionId,
+            cashfreeMode: payment.mode,
         });
         await setPendingOrder(response, order);
         dlog('checkout: pending-order cookie set', { orderId: order.orderId, httpsOnlyFlag: process.env.NODE_ENV === 'production' });

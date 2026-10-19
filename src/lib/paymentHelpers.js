@@ -13,9 +13,15 @@ function cashfreeEnv() {
         appIdPrefix: String(process.env.CASHFREE_APP_ID || '').slice(0, 4),
         hasAppId: Boolean(process.env.CASHFREE_APP_ID),
         keyEnvironment: (secret.match(/^cfsk_ma_(test|prod)/) || [])[1] || (secret ? 'unrecognised' : 'MISSING'),
-        browserMode: process.env.NEXT_PUBLIC_CASHFREE_MODE || '(unset = sandbox)',
+        browserMode: getCashfreeMode(),
         siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
     };
+}
+
+// "production" when the server talks to api.cashfree.com, otherwise "sandbox".
+// A session created in one environment is invalid in the other.
+export function getCashfreeMode() {
+    return /\/\/api\.cashfree\.com/i.test(String(process.env.CASHFREE_BASE_URL || '').trim()) ? 'production' : 'sandbox';
 }
 
 // Cashfree session ids end in "payment" exactly once. The API sometimes returns
@@ -174,8 +180,15 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
             sessionIdWasTrimmed: sessionId !== rawSessionId,
         });
 
+        if (!sessionId) {
+            throw new Error(data?.message || 'Cashfree did not return a payment session');
+        }
+
         return {
-            sessionId
+            sessionId,
+            // Same environment the order was just created in, so the browser SDK
+            // can never target a different one than the server.
+            mode: getCashfreeMode(),
         };
     } catch (error) {
         dlog('Cashfree !! create order FAILED', { ...describeGatewayError(error), env: cashfreeEnv() });

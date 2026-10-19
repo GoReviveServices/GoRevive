@@ -287,14 +287,22 @@ export default function CheckoutPage() {
             }
 
             // Cashfree checkout script is loaded only when the buyer pays.
+            if (!data.sessionId) {
+                toast.error('Payment session could not be created. Please try again.', { id: toastId });
+                setIsInitiatingPayment(false);
+                return;
+            }
+
             const { load } = await import('@cashfreepayments/cashfree-js');
-            const cashfree = await load({ mode: process.env.NEXT_PUBLIC_CASHFREE_MODE === 'production' ? 'production' : 'sandbox' });
+            // Use the mode the server created the session in; a mismatch makes Cashfree
+            // reject the session as invalid.
+            const cashfree = await load({ mode: data.cashfreeMode === 'production' ? 'production' : 'sandbox' });
             toast.dismiss(toastId);
 
             const result = await cashfree.checkout({ paymentSessionId: data.sessionId, redirectTarget: '_modal' });
             console.log('[checkout-debug] Cashfree modal finished', { error: result?.error || null, paymentDetails: result?.paymentDetails || null, redirect: Boolean(result?.redirect) });
 
-            if (result.error) {
+            if (result?.error) {
                 toast.error('Payment failed: ' + result.error.message);
                 setIsInitiatingPayment(false);
             } else {
