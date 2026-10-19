@@ -93,49 +93,65 @@ export default function CheckoutPage() {
         fetchWalletBalance();
     }, [user]);
 
-    // 2. Fetch Addresses (Restored!)
-    useEffect(() => {
-        if (isAuthenticated && user?.crm_party_code) {
-            const fetchAddresses = async () => {
-                try {
-                    const response = await api.get('/user/addresses');
-                    let fetchedAddresses = [];
+    // 2. Fetch Addresses. `selectNew` picks the address that was just added.
+    const loadAddresses = async (selectNew = false) => {
+        try {
+            const response = await api.get('/user/addresses');
+            let fetchedAddresses = [];
 
-                    if (response.data.success) {
-                        fetchedAddresses = response.data.addresses;
-                    }
+            if (response.data.success) {
+                fetchedAddresses = response.data.addresses;
+            }
 
-                    // Merge the default address from the user profile if it exists
-                    if (user.address1) {
-                        const defaultProfileAddress = {
-                            addressid: 'default-profile-address',
-                            address_type: 'PROFILE DEFAULT',
-                            contact_name: user.cust_name,
-                            contact_no: user.mobile,
-                            plot_no: user.address1,
-                            locality: user.address2 || '',
-                            city: user.city,
-                            state: user.state,
-                            pincode: user.pincode,
-                            landmark: ''
-                        };
-                        fetchedAddresses = [defaultProfileAddress, ...fetchedAddresses];
-                    }
+            // Merge the default address from the user profile if it exists
+            if (user.address1) {
+                const defaultProfileAddress = {
+                    addressid: 'default-profile-address',
+                    address_type: 'PROFILE DEFAULT',
+                    contact_name: user.cust_name,
+                    contact_no: user.mobile,
+                    plot_no: user.address1,
+                    locality: user.address2 || '',
+                    city: user.city,
+                    state: user.state,
+                    pincode: user.pincode,
+                    landmark: ''
+                };
+                fetchedAddresses = [defaultProfileAddress, ...fetchedAddresses];
+            }
 
-                    setAddresses(fetchedAddresses);
-                    
-                    if (fetchedAddresses.length > 0) {
-                        setSelectedAddressId(fetchedAddresses[0].addressid);
-                    }
-                } catch (error) {
-                    toast.error("Failed to load saved addresses.");
-                } finally {
-                    setIsLoadingAddresses(false);
-                }
-            };
-            fetchAddresses();
+            const before = new Set(addresses.map((a) => String(a.addressid)));
+            setAddresses(fetchedAddresses);
+
+            const added = selectNew ? fetchedAddresses.filter((a) => !before.has(String(a.addressid))).pop() : null;
+            if (added) setSelectedAddressId(added.addressid);
+            else if (fetchedAddresses.length > 0 && !selectNew) setSelectedAddressId(fetchedAddresses[0].addressid);
+        } catch (error) {
+            toast.error("Failed to load saved addresses.");
+        } finally {
+            setIsLoadingAddresses(false);
         }
+    };
+
+    useEffect(() => {
+        if (isAuthenticated && user?.crm_party_code) loadAddresses();
     }, [isAuthenticated, user]);
+
+    const handleAddAddress = async (values) => {
+        try {
+            const { data } = await api.post('/user/addresses', values);
+            if (!data?.success) {
+                toast.error(data?.message || "Could not save the address.");
+                return false;
+            }
+            toast.success("Address added.");
+            await loadAddresses(true);
+            return true;
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Could not save the address.");
+            return false;
+        }
+    };
 
     // ==========================================
     // CALCULATIONS
@@ -322,6 +338,9 @@ export default function CheckoutPage() {
                                 selectedAddressId={selectedAddressId}
                                 setSelectedAddressId={setSelectedAddressId}
                                 isLoadingAddresses={isLoadingAddresses}
+                                onAddAddress={handleAddAddress}
+                                defaultName={user?.cust_name || ''}
+                                defaultMobile={user?.mobile || ''}
                                 handleProceedToVerification={handleProceedToVerification}
                             />
                         )}

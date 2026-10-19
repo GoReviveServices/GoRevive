@@ -1,19 +1,21 @@
-import React from 'react'
+import React, { useState } from 'react'
+import AddressForm from './AddressForm'
 
-function Address({addresses, selectedAddressId, setSelectedAddressId, isLoadingAddresses, handleProceedToVerification }) {
+function Address({addresses, selectedAddressId, setSelectedAddressId, isLoadingAddresses, handleProceedToVerification, onAddAddress, defaultName, defaultMobile }) {
+    const [showForm, setShowForm] = useState(false)
+    const formOpen = showForm || (!isLoadingAddresses && addresses.length === 0)
+    const save = async (values) => { if (await onAddAddress(values)) setShowForm(false) }
     return (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-[#0B2136]">Select Shipping Address</h2>
-                {/* <button className="text-sm font-bold text-[#1B5E3B] hover:underline">+ Add New</button> */}
+                {!formOpen && !isLoadingAddresses && <button type="button" onClick={() => setShowForm(true)} className="text-sm font-bold text-[#1B5E3B] hover:underline">+ Add New</button>}
             </div>
 
             {isLoadingAddresses ? (
                 <div className="py-10 text-center"><div className="w-6 h-6 border-2 border-[#1B5E3B]/20 border-t-[#1B5E3B] rounded-full animate-spin mx-auto"></div></div>
             ) : addresses.length === 0 ? (
-                <div className="py-10 text-center border-2 border-dashed border-gray-200 rounded-xl">
-                    <p className="text-gray-500 font-semibold">No addresses found.</p>
-                </div>
+                <p className="mb-4 text-sm font-semibold text-gray-500">You have no saved addresses yet. Add one to continue.</p>
             ) : (
                 <div className="space-y-4">
                     {addresses.map(addr => (
@@ -35,13 +37,19 @@ function Address({addresses, selectedAddressId, setSelectedAddressId, isLoadingA
                                 </div>
                             </div>
                             <p className="text-sm text-gray-600 leading-relaxed">
-                                {addr.plot_no}, {addr.locality}<br />
+                                {[addr.plot_no, addr.locality].filter(Boolean).join(', ')}<br />
                                 {addr.city}, {addr.state} - {addr.pincode}<br />
                                 {addr.landmark && <span className="text-gray-400 text-xs">Landmark: {addr.landmark}</span>}
                             </p>
                             <p className="text-sm font-semibold text-gray-800 mt-2">Mobile: {addr.contact_no}</p>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {formOpen && !isLoadingAddresses && (
+                <div className={addresses.length ? 'mt-4' : ''}>
+                    <AddressForm defaultName={defaultName} defaultMobile={defaultMobile} onSubmit={save} onCancel={() => setShowForm(false)} canCancel={addresses.length > 0} />
                 </div>
             )}
 
