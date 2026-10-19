@@ -18,6 +18,12 @@ function cashfreeEnv() {
     };
 }
 
+// Cashfree session ids end in "payment" exactly once. The API sometimes returns
+// "...paymentpayment", and the checkout pop-up then shows "Something went wrong".
+export function cleanCashfreeSessionId(id) {
+    return typeof id === 'string' ? id.replace(/(?:payment){2,}$/, 'payment') : id;
+}
+
 function describeGatewayError(error) {
     return {
         message: error.message,
@@ -157,10 +163,19 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
         });
 
         const data = response.data;
-        dlog('Cashfree <- create order', { httpStatus: response.status, cfOrderId: data.cf_order_id, orderStatus: data.order_status, hasSessionId: Boolean(data.payment_session_id) });
+        const rawSessionId = data.payment_session_id;
+        const sessionId = cleanCashfreeSessionId(rawSessionId);
+        dlog('Cashfree <- create order', {
+            httpStatus: response.status,
+            cfOrderId: data.cf_order_id,
+            orderStatus: data.order_status,
+            hasSessionId: Boolean(rawSessionId),
+            sessionIdTail: String(rawSessionId || '').slice(-24),
+            sessionIdWasTrimmed: sessionId !== rawSessionId,
+        });
 
         return {
-            sessionId: data.payment_session_id
+            sessionId
         };
     } catch (error) {
         dlog('Cashfree !! create order FAILED', { ...describeGatewayError(error), env: cashfreeEnv() });
