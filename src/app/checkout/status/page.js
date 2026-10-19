@@ -6,6 +6,11 @@ import Link from 'next/link';
 import api from '@/lib/apiClient';
 import { useCart } from '@/components/utils/Context/CartContext';
 
+// Browser-side trace for development only; nothing is logged on the live site.
+const debugLog = (...args) => {
+    if (process.env.NODE_ENV !== 'production') console.log('[checkout-debug]', ...args);
+};
+
 function StatusContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -33,10 +38,10 @@ function StatusContent() {
 
         // The server checks the payment with the bank, matches the amount to the
         // order it created, and creates the invoice exactly once.
-        console.log('[checkout-debug] status page: asking server to verify', { orderId });
+        debugLog('status page: asking server to verify', { orderId });
         api.post('/payment/verify', { orderId })
             .then(({ data }) => {
-                console.log('[checkout-debug] /api/payment/verify reply', data);
+                debugLog('/api/payment/verify reply', data);
                 if (data?.success && data?.isPaid) {
                     clearCart();
                     setStatus('success');
@@ -46,7 +51,7 @@ function StatusContent() {
                 }
             })
             .catch((error) => {
-                console.log('[checkout-debug] /api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
+                debugLog('/api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
                 setStatus('failed');
                 setErrorMessage(error.response?.data?.message || "Network error during verification.");
             });

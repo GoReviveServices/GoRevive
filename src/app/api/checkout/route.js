@@ -85,6 +85,16 @@ export async function POST(request) {
             return NextResponse.json({ success: true, completed: true, orderId: order.orderId, gateway: 'WALLET' });
         }
 
+        // A gateway call that "succeeded" without a way to pay must not reach the browser.
+        if (gateway === 'CASHFREE' ? !payment?.sessionId : !payment?.paymentUrl) {
+            console.error('Checkout: gateway returned nothing to pay with', { orderId: order.orderId, gateway });
+            return NextResponse.json({
+                success: false,
+                message: 'Could not start payment. Please try again.',
+                ...(process.env.NODE_ENV !== 'production' ? { detail: `${gateway} returned no ${gateway === 'CASHFREE' ? 'payment session' : 'payment link'}` } : {}),
+            }, { status: 502 });
+        }
+
         const response = NextResponse.json({
             success: true,
             completed: false,
@@ -103,6 +113,11 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: error.message, ...error.extra }, { status: 400 });
         }
         console.error('Checkout error:', error.message, error.stack);
-        return NextResponse.json({ success: false, message: 'Could not start payment. Please try again.' }, { status: 502 });
+        return NextResponse.json({
+            success: false,
+            message: 'Could not start payment. Please try again.',
+            // The real reason is shown only while developing; customers never see gateway details.
+            ...(process.env.NODE_ENV !== 'production' ? { detail: error.message } : {}),
+        }, { status: 502 });
     }
 }

@@ -1,0 +1,372 @@
+diff --git a/.env.example b/.env.example
+index a9f20f7..c074cf7 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,5 +1,12 @@
+ # Copy to .env.local (or set in your host's dashboard) and fill in real values.
+ # Never commit real secrets.
++#
++# Rules that have caused real checkout failures:
++#  - List every variable ONCE. When a name appears twice, the LAST line wins, so
++#    a blank "HDFC_API_KEY=" further down silently wipes out a filled one above.
++#  - Do not set NODE_ENV here; Next.js sets it for dev / build / start.
++#  - Local development: NEXT_PUBLIC_SITE_URL=http://localhost:3000 and the Cashfree
++#    SANDBOX url + sandbox keys (see the Payments section below).
+ 
+ # --- Site ---------------------------------------------------------------
+ # Public URL of the live site. Used for canonical URLs, sitemap, Open Graph
+@@ -43,9 +50,13 @@ CASHFREE_BASE_URL=https://api.cashfree.com/pg
+ CASHFREE_APP_ID=
+ CASHFREE_SECRET_KEY=
+ # Cashfree mode is derived from CASHFREE_BASE_URL (no separate setting needed):
+-#   live:    https://api.cashfree.com/pg
+-#   sandbox: https://sandbox.cashfree.com/pg   (use sandbox App ID / Secret with it)
++#   live:    https://api.cashfree.com/pg       + live App ID / cfsk_ma_prod_... secret
++#   sandbox: https://sandbox.cashfree.com/pg   + TEST... App ID / cfsk_ma_test_... secret
++# A session created in one environment is invalid in the other, so keep the URL,
++# App ID and Secret from the same environment.
+ 
++# HDFC SmartGateway (UAT: https://smartgateway.hdfcuat.bank.in). The server
++# supports it; the checkout page currently only offers Cashfree buttons.
+ HDFC_BASE_URL=
+ HDFC_API_KEY=
+ HDFC_MERCHANT_ID=
+diff --git a/src/app/api/checkout/route.js b/src/app/api/checkout/route.js
+index 79d6189..460ecd0 100644
+--- a/src/app/api/checkout/route.js
++++ b/src/app/api/checkout/route.js
+@@ -85,6 +85,16 @@ export async function POST(request) {
+             return NextResponse.json({ success: true, completed: true, orderId: order.orderId, gateway: 'WALLET' });
+         }
+ 
++        // A gateway call that "succeeded" without a way to pay must not reach the browser.
++        if (gateway === 'CASHFREE' ? !payment?.sessionId : !payment?.paymentUrl) {
++            console.error('Checkout: gateway returned nothing to pay with', { orderId: order.orderId, gateway });
++            return NextResponse.json({
++                success: false,
++                message: 'Could not start payment. Please try again.',
++                ...(process.env.NODE_ENV !== 'production' ? { detail: `${gateway} returned no ${gateway === 'CASHFREE' ? 'payment session' : 'payment link'}` } : {}),
++            }, { status: 502 });
++        }
++
+         const response = NextResponse.json({
+             success: true,
+             completed: false,
+@@ -103,6 +113,11 @@ export async function POST(request) {
+             return NextResponse.json({ success: false, message: error.message, ...error.extra }, { status: 400 });
+         }
+         console.error('Checkout error:', error.message, error.stack);
+-        return NextResponse.json({ success: false, message: 'Could not start payment. Please try again.' }, { status: 502 });
++        return NextResponse.json({
++            success: false,
++            message: 'Could not start payment. Please try again.',
++            // The real reason is shown only while developing; customers never see gateway details.
++            ...(process.env.NODE_ENV !== 'production' ? { detail: error.message } : {}),
++        }, { status: 502 });
+     }
+ }
+diff --git a/src/app/checkout/page.js b/src/app/checkout/page.js
+index b2fbafb..0071555 100644
+--- a/src/app/checkout/page.js
++++ b/src/app/checkout/page.js
+@@ -18,6 +18,11 @@ import { computeOrderTotals } from '@/lib/pricing';
+ 
+ const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount).replace(/\s/g, '');
+ 
++// Browser-side trace for development only; nothing is logged on the live site.
++const debugLog = (...args) => {
++    if (process.env.NODE_ENV !== 'production') console.log('[checkout-debug]', ...args);
++};
++
+ const STEPS = [
+     { id: 1, name: 'Shipping Address' },
+     { id: 2, name: 'B2B Verification' },
+@@ -256,6 +261,16 @@ export default function CheckoutPage() {
+         }
+     };
+ 
++    // Asks the server (which asks the bank) whether this order was actually paid.
++    const isPaidOnServer = async (orderId) => {
++        try {
++            const { data } = await api.post('/payment/verify', { orderId });
++            return Boolean(data?.success && data?.isPaid);
++        } catch {
++            return false;
++        }
++    };
++
+     // The server prices the cart, creates the PO and opens the payment session.
+     // Invoices are only created by the server after it verifies the payment.
+     const handleInitiatePayment = async (gateway, option) => {
+@@ -264,7 +279,7 @@ export default function CheckoutPage() {
+ 
+         try {
+             const { data } = await api.post('/checkout', { addressId: selectedAddressId, gateway, option, warrantyIds });
+-            console.log('[checkout-debug] /api/checkout reply', { success: data.success, completed: data.completed, orderId: data.orderId, gateway: data.gateway, hasSessionId: Boolean(data.sessionId), hasPaymentUrl: Boolean(data.paymentUrl), message: data.message });
++            debugLog('/api/checkout reply', { success: data.success, completed: data.completed, orderId: data.orderId, gateway: data.gateway, cashfreeMode: data.cashfreeMode, hasSessionId: Boolean(data.sessionId), sessionIdTail: String(data.sessionId || '').slice(-12), hasPaymentUrl: Boolean(data.paymentUrl), message: data.message });
+ 
+             if (!data.success) {
+                 toast.error(data.message || 'Failed to start payment.', { id: toastId });
+@@ -297,21 +312,32 @@ export default function CheckoutPage() {
+             // Use the mode the server created the session in; a mismatch makes Cashfree
+             // reject the session as invalid.
+             const cashfree = await load({ mode: data.cashfreeMode === 'production' ? 'production' : 'sandbox' });
++            if (!cashfree) throw new Error('The payment window could not be loaded. Please refresh and try again.');
+             toast.dismiss(toastId);
+ 
+             const result = await cashfree.checkout({ paymentSessionId: data.sessionId, redirectTarget: '_modal' });
+-            console.log('[checkout-debug] Cashfree modal finished', { error: result?.error || null, paymentDetails: result?.paymentDetails || null, redirect: Boolean(result?.redirect) });
++            debugLog('Cashfree modal finished', { error: result?.error || null, paymentDetails: result?.paymentDetails || null, redirect: Boolean(result?.redirect) });
+ 
+             if (result?.error) {
+-                toast.error('Payment failed: ' + result.error.message);
++                // The buyer may have approved the payment (a UPI request, say) and closed
++                // the pop-up before it reported success. Ask the server before calling
++                // it a failure; if it was paid, the status page finishes the order.
++                if (await isPaidOnServer(data.orderId)) {
++                    router.push(statusUrl);
++                    return;
++                }
++                toast.error('Payment failed: ' + (result.error.message || 'the payment window was closed.'));
+                 setIsInitiatingPayment(false);
+             } else {
+                 // The status page asks the server to verify the payment and create the invoice.
+                 router.push(statusUrl);
+             }
+         } catch (error) {
+-            console.log('[checkout-debug] checkout request failed', { status: error.response?.status, data: error.response?.data, message: error.message });
+-            const message = error.response?.data?.message || 'Network error while connecting to bank.';
++            debugLog('checkout request failed', { status: error.response?.status, data: error.response?.data, message: error.message });
++            const baseMessage = error.response?.data?.message || error.message || 'Network error while connecting to bank.';
++            // `detail` is only sent by the server while developing.
++            const detail = error.response?.data?.detail;
++            const message = detail ? `${baseMessage} (${detail})` : baseMessage;
+             if (error.response?.data?.unavailable) setUnavailableItems(error.response.data.unavailable);
+             // Documents went missing since step 2: send the buyer back to upload them.
+             if (error.response?.data?.code === 'KYC_MISSING') { setCurrentStep(2); fetchKycStatus(); }
+diff --git a/src/app/checkout/status/page.js b/src/app/checkout/status/page.js
+index a22bf84..90875ef 100644
+--- a/src/app/checkout/status/page.js
++++ b/src/app/checkout/status/page.js
+@@ -6,6 +6,11 @@ import Link from 'next/link';
+ import api from '@/lib/apiClient';
+ import { useCart } from '@/components/utils/Context/CartContext';
+ 
++// Browser-side trace for development only; nothing is logged on the live site.
++const debugLog = (...args) => {
++    if (process.env.NODE_ENV !== 'production') console.log('[checkout-debug]', ...args);
++};
++
+ function StatusContent() {
+     const searchParams = useSearchParams();
+     const router = useRouter();
+@@ -33,10 +38,10 @@ function StatusContent() {
+ 
+         // The server checks the payment with the bank, matches the amount to the
+         // order it created, and creates the invoice exactly once.
+-        console.log('[checkout-debug] status page: asking server to verify', { orderId });
++        debugLog('status page: asking server to verify', { orderId });
+         api.post('/payment/verify', { orderId })
+             .then(({ data }) => {
+-                console.log('[checkout-debug] /api/payment/verify reply', data);
++                debugLog('/api/payment/verify reply', data);
+                 if (data?.success && data?.isPaid) {
+                     clearCart();
+                     setStatus('success');
+@@ -46,7 +51,7 @@ function StatusContent() {
+                 }
+             })
+             .catch((error) => {
+-                console.log('[checkout-debug] /api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
++                debugLog('/api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
+                 setStatus('failed');
+                 setErrorMessage(error.response?.data?.message || "Network error during verification.");
+             });
+diff --git a/src/lib/paymentHelpers.js b/src/lib/paymentHelpers.js
+index c87db8d..0cc9636 100644
+--- a/src/lib/paymentHelpers.js
++++ b/src/lib/paymentHelpers.js
+@@ -4,14 +4,19 @@ import { dlog } from '@/lib/server/debug';
+ 
+ const gatewayHttp = axios.create({ timeout: 20000 });
+ 
++// Env values with stray spaces or a trailing "\r" (Windows line endings) make
++// the gateway reject the keys, so every gateway setting is read through this.
++const env = (name) => String(process.env[name] ?? '').trim();
++const cashfreeBaseUrl = () => env('CASHFREE_BASE_URL').replace(/\/+$/, '');
++
+ // What the app is configured to talk to (no secrets): enough to spot test keys
+ // on the production URL, an http return URL, or a missing variable.
+ function cashfreeEnv() {
+-    const secret = String(process.env.CASHFREE_SECRET_KEY || '');
++    const secret = env('CASHFREE_SECRET_KEY');
+     return {
+-        baseUrl: process.env.CASHFREE_BASE_URL,
+-        appIdPrefix: String(process.env.CASHFREE_APP_ID || '').slice(0, 4),
+-        hasAppId: Boolean(process.env.CASHFREE_APP_ID),
++        baseUrl: cashfreeBaseUrl(),
++        appIdPrefix: env('CASHFREE_APP_ID').slice(0, 4),
++        hasAppId: Boolean(env('CASHFREE_APP_ID')),
+         keyEnvironment: (secret.match(/^cfsk_ma_(test|prod)/) || [])[1] || (secret ? 'unrecognised' : 'MISSING'),
+         browserMode: getCashfreeMode(),
+         siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+@@ -21,13 +26,44 @@ function cashfreeEnv() {
+ // "production" when the server talks to api.cashfree.com, otherwise "sandbox".
+ // A session created in one environment is invalid in the other.
+ export function getCashfreeMode() {
+-    return /\/\/api\.cashfree\.com/i.test(String(process.env.CASHFREE_BASE_URL || '').trim()) ? 'production' : 'sandbox';
++    return /\/\/api\.cashfree\.com/i.test(cashfreeBaseUrl()) ? 'production' : 'sandbox';
++}
++
++// Checked before every Cashfree call. Missing settings stop the request with a
++// clear message; mismatched ones (sandbox keys on the live URL, or the reverse)
++// are only warned about, because Cashfree rejects those itself.
++function assertCashfreeConfig() {
++    const base = cashfreeBaseUrl();
++    const appId = env('CASHFREE_APP_ID');
++    const secret = env('CASHFREE_SECRET_KEY');
++
++    const missing = [
++        !base && 'CASHFREE_BASE_URL',
++        !appId && 'CASHFREE_APP_ID',
++        !secret && 'CASHFREE_SECRET_KEY',
++    ].filter(Boolean);
++    if (missing.length) {
++        throw new Error(`Cashfree is not configured: ${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} empty or missing. Check .env.local, and make sure none of them is repeated lower down in the file as a blank line.`);
++    }
++
++    const mode = getCashfreeMode();
++    const keyEnv = (secret.match(/^cfsk_ma_(test|prod)_/) || [])[1];
++    if (keyEnv && (keyEnv === 'prod') !== (mode === 'production')) {
++        console.warn(`Cashfree config mismatch: CASHFREE_SECRET_KEY is a ${keyEnv} key but CASHFREE_BASE_URL points at ${mode}.`);
++    }
++    if (/^TEST/i.test(appId) !== (mode === 'sandbox')) {
++        console.warn(`Cashfree config mismatch: CASHFREE_APP_ID ${/^TEST/i.test(appId) ? 'looks like a sandbox id' : 'does not look like a sandbox id'} but CASHFREE_BASE_URL points at ${mode}.`);
++    }
++    if (!/^https:\/\/(sandbox|api)\.cashfree\.com\/pg$/i.test(base)) {
++        console.warn(`Unexpected CASHFREE_BASE_URL "${base}"; expected https://sandbox.cashfree.com/pg or https://api.cashfree.com/pg.`);
++    }
+ }
+ 
+ // Cashfree session ids end in "payment" exactly once. The API sometimes returns
+-// "...paymentpayment", and the checkout pop-up then shows "Something went wrong".
++// "...paymentpayment", and the checkout pop-up then rejects it as
++// "payment_session_id is not present or is invalid".
+ export function cleanCashfreeSessionId(id) {
+-    return typeof id === 'string' ? id.replace(/(?:payment){2,}$/, 'payment') : id;
++    return typeof id === 'string' ? id.trim().replace(/(?:payment){2,}$/, 'payment') : id;
+ }
+ 
+ function describeGatewayError(error) {
+@@ -52,9 +88,22 @@ function describeGatewayError(error) {
+  * @returns {Object} { paymentUrl, sdkPayload }
+  */
+ 
++// Throws a clear message when an HDFC setting is empty (for example a blank
++// duplicate line lower down in the env file), instead of sending "Basic undefined:".
++function assertHdfcConfig() {
++    const missing = ['HDFC_BASE_URL', 'HDFC_API_KEY', 'HDFC_MERCHANT_ID', 'NEXT_PUBLIC_HDFC_CLIENT_ID'].filter((name) => !env(name));
++    if (missing.length) {
++        throw new Error(`HDFC is not configured: ${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} empty or missing. Check .env.local for a blank duplicate line.`);
++    }
++}
++
++const hdfcBaseUrl = () => env('HDFC_BASE_URL').replace(/\/+$/, '');
++const hdfcAuthHeader = () => `Basic ${Buffer.from(`${env('HDFC_API_KEY')}:`).toString('base64')}`;
++
+ export async function createHdfcSession({ orderId, amount, customerId, phone, email, returnUrl, payment_filter }) {
+     try {
+-        const authHeader = `Basic ${Buffer.from(process.env.HDFC_API_KEY + ":").toString('base64')}`;
++        assertHdfcConfig();
++        const authHeader = hdfcAuthHeader();
+ 
+         const payload = {
+             order_id: orderId,
+@@ -62,17 +111,17 @@ export async function createHdfcSession({ orderId, amount, customerId, phone, em
+             customer_id: customerId,
+             customer_email: email,
+             customer_phone: phone,
+-            payment_page_client_id: process.env.NEXT_PUBLIC_HDFC_CLIENT_ID,
++            payment_page_client_id: env('NEXT_PUBLIC_HDFC_CLIENT_ID'),
+             action: "paymentPage",
+             return_url: returnUrl,
+             payment_filter,
+         };
+ 
+ 
+-        const response = await gatewayHttp.post(`${process.env.HDFC_BASE_URL}/session`, payload, {
++        const response = await gatewayHttp.post(`${hdfcBaseUrl()}/session`, payload, {
+             headers: {
+                 'Authorization': authHeader,
+-                'x-merchantid': process.env.HDFC_MERCHANT_ID,
++                'x-merchantid': env('HDFC_MERCHANT_ID'),
+                 'Content-Type': 'application/json'
+             }
+         });
+@@ -99,12 +148,11 @@ export async function createHdfcSession({ orderId, amount, customerId, phone, em
+  */
+ export async function verifyHdfcOrder(orderId) {
+     try {
+-        const authHeader = `Basic ${Buffer.from(process.env.HDFC_API_KEY + ":").toString('base64')}`;
+-
+-        const response = await gatewayHttp.get(`${process.env.HDFC_BASE_URL}/orders/${orderId}`, {
++        assertHdfcConfig();
++        const response = await gatewayHttp.get(`${hdfcBaseUrl()}/orders/${encodeURIComponent(orderId)}`, {
+             headers: {
+-                'Authorization': authHeader,
+-                'x-merchantid': process.env.HDFC_MERCHANT_ID,
++                'Authorization': hdfcAuthHeader(),
++                'x-merchantid': env('HDFC_MERCHANT_ID'),
+                 'Content-Type': 'application/json'
+             }
+         });
+@@ -136,6 +184,7 @@ export async function verifyHdfcOrder(orderId) {
+ 
+ export async function createCashfreeOrder({ orderId, amount, customerId, phone, email, name, returnUrl, payment_methods_filters }) {
+     try {
++        assertCashfreeConfig();
+         const payload = {
+             order_id: orderId,
+             order_amount: Number(Number(amount).toFixed(2)),
+@@ -159,10 +208,10 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone,
+         if (!payload.order_meta.return_url) dlog('Cashfree: return_url left out because it is not https', { returnUrl });
+ 
+         dlog('Cashfree -> create order', { env: cashfreeEnv(), orderId, amount: payload.order_amount, returnUrl, paymentMethods: payload.order_meta.payment_methods, customerId });
+-        const response = await gatewayHttp.post(`${process.env.CASHFREE_BASE_URL}/orders`, payload, {
++        const response = await gatewayHttp.post(`${cashfreeBaseUrl()}/orders`, payload, {
+             headers: {
+-                'x-client-id': process.env.CASHFREE_APP_ID,
+-                'x-client-secret': process.env.CASHFREE_SECRET_KEY,
++                'x-client-id': env('CASHFREE_APP_ID'),
++                'x-client-secret': env('CASHFREE_SECRET_KEY'),
+                 'x-api-version': '2023-08-01',
+                 'Content-Type': 'application/json'
+             }
+@@ -183,6 +232,12 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone,
+         if (!sessionId) {
+             throw new Error(data?.message || 'Cashfree did not return a payment session');
+         }
++        // Not blocking (Cashfree may change the format), but a session that does not
++        // look like "session_...payment" is the first thing to check when the
++        // pop-up says the session is invalid.
++        if (!/^session_.+payment$/.test(sessionId)) {
++            console.warn('Cashfree returned a payment session in an unexpected format', { sessionIdHead: sessionId.slice(0, 12), sessionIdTail: sessionId.slice(-12), length: sessionId.length });
++        }
+ 
+         return {
+             sessionId,
+@@ -204,10 +259,11 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone,
+  */
+ export async function verifyCashfreeOrder(orderId) {
+     try {
+-        const response = await gatewayHttp.get(`${process.env.CASHFREE_BASE_URL}/orders/${orderId}`, {
++        assertCashfreeConfig();
++        const response = await gatewayHttp.get(`${cashfreeBaseUrl()}/orders/${encodeURIComponent(orderId)}`, {
+             headers: {
+-                'x-client-id': process.env.CASHFREE_APP_ID,
+-                'x-client-secret': process.env.CASHFREE_SECRET_KEY,
++                'x-client-id': env('CASHFREE_APP_ID'),
++                'x-client-secret': env('CASHFREE_SECRET_KEY'),
+                 'x-api-version': '2023-08-01',
+                 'Content-Type': 'application/json'
+             }

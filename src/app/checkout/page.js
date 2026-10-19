@@ -18,6 +18,11 @@ import { computeOrderTotals } from '@/lib/pricing';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount).replace(/\s/g, '');
 
+// Browser-side trace for development only; nothing is logged on the live site.
+const debugLog = (...args) => {
+    if (process.env.NODE_ENV !== 'production') console.log('[checkout-debug]', ...args);
+};
+
 const STEPS = [
     { id: 1, name: 'Shipping Address' },
     { id: 2, name: 'B2B Verification' },
@@ -256,6 +261,16 @@ export default function CheckoutPage() {
         }
     };
 
+    // Asks the server (which asks the bank) whether this order was actually paid.
+    const isPaidOnServer = async (orderId) => {
+        try {
+            const { data } = await api.post('/payment/verify', { orderId });
+            return Boolean(data?.success && data?.isPaid);
+        } catch {
+            return false;
+        }
+    };
+
     // The server prices the cart, creates the PO and opens the payment session.
     // Invoices are only created by the server after it verifies the payment.
     const handleInitiatePayment = async (gateway, option) => {
@@ -264,7 +279,7 @@ export default function CheckoutPage() {
 
         try {
             const { data } = await api.post('/checkout', { addressId: selectedAddressId, gateway, option, warrantyIds });
-            console.log('[checkout-debug] /api/checkout reply', { success: data.success, completed: data.completed, orderId: data.orderId, gateway: data.gateway, hasSessionId: Boolean(data.sessionId), hasPaymentUrl: Boolean(data.paymentUrl), message: data.message });
+            debugLog('/api/checkout reply', { success: data.success, completed: data.completed, orderId: data.orderId, gateway: data.gateway, cashfreeMode: data.cashfreeMode, hasSessionId: Boolean(data.sessionId), sessionIdTail: String(data.sessionId || '').slice(-12), hasPaymentUrl: Boolean(data.paymentUrl), message: data.message });
 
             if (!data.success) {
                 toast.error(data.message || 'Failed to start payment.', { id: toastId });
@@ -297,21 +312,32 @@ export default function CheckoutPage() {
             // Use the mode the server created the session in; a mismatch makes Cashfree
             // reject the session as invalid.
             const cashfree = await load({ mode: data.cashfreeMode === 'production' ? 'production' : 'sandbox' });
+            if (!cashfree) throw new Error('The payment window could not be loaded. Please refresh and try again.');
             toast.dismiss(toastId);
 
             const result = await cashfree.checkout({ paymentSessionId: data.sessionId, redirectTarget: '_modal' });
-            console.log('[checkout-debug] Cashfree modal finished', { error: result?.error || null, paymentDetails: result?.paymentDetails || null, redirect: Boolean(result?.redirect) });
+            debugLog('Cashfree modal finished', { error: result?.error || null, paymentDetails: result?.paymentDetails || null, redirect: Boolean(result?.redirect) });
 
             if (result?.error) {
-                toast.error('Payment failed: ' + result.error.message);
+                // The buyer may have approved the payment (a UPI request, say) and closed
+                // the pop-up before it reported success. Ask the server before calling
+                // it a failure; if it was paid, the status page finishes the order.
+                if (await isPaidOnServer(data.orderId)) {
+                    router.push(statusUrl);
+                    return;
+                }
+                toast.error('Payment failed: ' + (result.error.message || 'the payment window was closed.'));
                 setIsInitiatingPayment(false);
             } else {
                 // The status page asks the server to verify the payment and create the invoice.
                 router.push(statusUrl);
             }
         } catch (error) {
-            console.log('[checkout-debug] checkout request failed', { status: error.response?.status, data: error.response?.data, message: error.message });
-            const message = error.response?.data?.message || 'Network error while connecting to bank.';
+            debugLog('checkout request failed', { status: error.response?.status, data: error.response?.data, message: error.message });
+            const baseMessage = error.response?.data?.message || error.message || 'Network error while connecting to bank.';
+            // `detail` is only sent by the server while developing.
+            const detail = error.response?.data?.detail;
+            const message = detail ? `${baseMessage} (${detail})` : baseMessage;
             if (error.response?.data?.unavailable) setUnavailableItems(error.response.data.unavailable);
             // Documents went missing since step 2: send the buyer back to upload them.
             if (error.response?.data?.code === 'KYC_MISSING') { setCurrentStep(2); fetchKycStatus(); }
