@@ -234,7 +234,7 @@ export async function completeOrder(user, order, paymentReference) {
             igst_amount: '0.00',
             price: String(i.product.price),
             item_total: String(i.product.price * i.quantity),
-            warranty_days: String(warrantyDays(warranty.includes(String(i.product.id)))),
+            warranty_days: warrantyDays(warranty.includes(String(i.product.id))),
             ...warrantyFields(i, warranty),
         })),
     };
