@@ -253,18 +253,47 @@ export async function completeOrder(user, order, paymentReference) {
             igst_amount: '0.00',
             price: String(i.product.price),
             item_total: String(i.product.price * i.quantity),
-            warranty_days: warrantyDays(warranty.includes(String(i.product.id))),
+            // Off by default: invoice_creation.php answered "Column 'job_no' specified
+            // twice" (a SQL error in billing_product_items) once this field was sent,
+            // and it is the only line field the last working payload did not have.
+            // Set INVOICE_SEND_WARRANTY_DAYS=true after the backend team fixes the PHP.
+            ...(process.env.INVOICE_SEND_WARRANTY_DAYS === 'true'
+                ? { warranty_days: warrantyDays(warranty.includes(String(i.product.id))) }
+                : {}),
         })),
     };
+
+    // What PHP is about to be asked to book, so a rejection can be compared with
+    // the example payload: line total + extra charge should relate to tot_amount.
+    dlog('completeOrder: invoice totals being sent', {
+        lineTotal: items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
+        tot_taxable_amt: payload.tot_taxable_amt,
+        extra_amt: payload.extra_amt,
+        tot_amount: payload.tot_amount,
+        wallet_amount: payload.wallet_amount,
+        cashfree_amount: payload.cashfree_amount,
+        payment_mode: payload.payment_mode,
+        payment_reference: payload.payment_reference,
+        customer_gstno: payload.customer_gstno,
+    });
 
     const res = await phpPost('invoice_creation.php', { BillJSON: payload }, { raw: true });
     if (phpRejected(res)) {
         console.error('invoice_creation.php rejected the invoice', { orderId: order.orderId, response: res });
-        throw new OrderError(res?.message || res?.response?.message || 'Failed to create invoice.');
+        // Customers get the plain message; the PHP reply is for the developer only.
+        throw new OrderError('Failed to create invoice.', { detail: phpReplySummary(res) });
     }
     console.info('Invoice created', { orderId: order.orderId, status: res?.status ?? res?.response?.status });
     dlog('completeOrder: invoice accepted', { orderId: order.orderId });
     return res;
+}
+
+// A short, readable version of what PHP replied, for the developer-only `detail`.
+function phpReplySummary(res) {
+    const pick = (o) => o?.message ?? o?.msg ?? o?.error ?? o?.status_message;
+    const message = pick(res) ?? pick(res?.response);
+    if (typeof message === 'string' && message.trim()) return message.trim();
+    try { return JSON.stringify(res).slice(0, 400); } catch { return String(res).slice(0, 400); }
 }
 
 // PHP says "true"/"false" but the case and type vary ("False", false, 0, "error").

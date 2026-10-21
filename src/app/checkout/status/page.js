@@ -22,6 +22,7 @@ function StatusContent() {
     // 'loading' | 'success' | 'failed'
     const [status, setStatus] = useState(paidByWallet ? 'success' : orderId ? 'loading' : 'failed');
     const [errorMessage, setErrorMessage] = useState(orderId || paidByWallet ? '' : 'Invalid return URL. Missing order ID.');
+    const [devDetail, setDevDetail] = useState(''); // PHP reply, sent by the server only while developing
     const hasRun = useRef(false);
 
     useEffect(() => {
@@ -52,8 +53,17 @@ function StatusContent() {
             })
             .catch((error) => {
                 debugLog('/api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
+                const body = error.response?.data;
+                // The bank took the money but the order could not be finished. This is not
+                // a failed payment, so do not tell the buyer to pay again.
+                if (body?.isPaid) {
+                    setStatus('paid-unfinished');
+                    setErrorMessage(body.message || '');
+                    setDevDetail(body.detail || '');
+                    return;
+                }
                 setStatus('failed');
-                setErrorMessage(error.response?.data?.message || "Network error during verification.");
+                setErrorMessage(body?.message || "Network error during verification.");
             });
     }, [orderId, paidByWallet, clearCart]);
 
@@ -64,6 +74,37 @@ function StatusContent() {
                 <div className="w-16 h-16 border-4 border-[#1B5E3B]/20 border-t-[#1B5E3B] rounded-full animate-spin mb-6"></div>
                 <h1 className="text-2xl font-bold text-[#0B2136] mb-2">Verifying Payment...</h1>
                 <p className="text-gray-500">Please don’t close or refresh this page.</p>
+            </div>
+        );
+    }
+
+    if (status === 'paid-unfinished') {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+                <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v4m0 4h.01M10.3 3.9L2.4 17.5A2 2 0 004.1 20.5h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg>
+                </div>
+                <h1 className="text-3xl font-bold text-[#0B2136] mb-4">Payment Received</h1>
+                <p className="text-gray-500 max-w-md mb-2">
+                    Your payment went through, but we could not finish creating your order automatically. Please do not pay again.
+                </p>
+                <p className="text-gray-500 max-w-md mb-2">{errorMessage}</p>
+                <p className="text-sm font-mono bg-gray-100 px-4 py-2 rounded-lg text-gray-600 my-4">
+                    Order ID: <strong>{orderId}</strong>
+                </p>
+                {devDetail && (
+                    <p className="text-xs font-mono text-left bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-900 max-w-md mb-6 break-words">
+                        dev only — PHP replied: {devDetail}
+                    </p>
+                )}
+                <div className="flex gap-4">
+                    <button onClick={() => window.location.reload()} className="bg-[#0B2136] text-white font-bold px-8 py-3 rounded-xl hover:bg-[#1B5E3B] transition-colors shadow-md">
+                        Check Again
+                    </button>
+                    <Link href="/support" className="bg-white border border-gray-200 text-gray-700 font-bold px-8 py-3 rounded-xl hover:bg-gray-50 transition-colors">
+                        Contact Support
+                    </Link>
+                </div>
             </div>
         );
     }

@@ -74,8 +74,14 @@ export async function POST(request) {
         return response;
     } catch (error) {
         if (error instanceof OrderError) {
-            dlog('verify: stopped by order error (payment was taken, no invoice)', { message: error.message });
-            return NextResponse.json({ success: false, isPaid: true, message: error.message }, { status: 409 });
+            dlog('verify: stopped by order error (payment was taken, no invoice)', { message: error.message, detail: error.extra?.detail });
+            return NextResponse.json({
+                success: false,
+                isPaid: true,
+                message: error.message,
+                // The PHP reply is shown only while developing.
+                ...(process.env.NODE_ENV !== 'production' && error.extra?.detail ? { detail: error.extra.detail } : {}),
+            }, { status: 409 });
         }
         console.error('Payment verification error:', error.message, error.stack);
         return NextResponse.json({ success: false, message: 'Could not verify payment. Please check your order history.' }, { status: 502 });

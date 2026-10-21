@@ -1,0 +1,211 @@
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..6c60dff
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,4 @@
++
++# Send warranty_days on each invoice line. Leave false until the PHP backend
++# accepts it: invoice_creation.php failed with "Column 'job_no' specified twice".
++INVOICE_SEND_WARRANTY_DAYS=false
+diff --git a/src/app/api/payment/verify/route.js b/src/app/api/payment/verify/route.js
+index 4a5b197..6996507 100644
+--- a/src/app/api/payment/verify/route.js
++++ b/src/app/api/payment/verify/route.js
+@@ -74,8 +74,14 @@ export async function POST(request) {
+         return response;
+     } catch (error) {
+         if (error instanceof OrderError) {
+-            dlog('verify: stopped by order error (payment was taken, no invoice)', { message: error.message });
+-            return NextResponse.json({ success: false, isPaid: true, message: error.message }, { status: 409 });
++            dlog('verify: stopped by order error (payment was taken, no invoice)', { message: error.message, detail: error.extra?.detail });
++            return NextResponse.json({
++                success: false,
++                isPaid: true,
++                message: error.message,
++                // The PHP reply is shown only while developing.
++                ...(process.env.NODE_ENV !== 'production' && error.extra?.detail ? { detail: error.extra.detail } : {}),
++            }, { status: 409 });
+         }
+         console.error('Payment verification error:', error.message, error.stack);
+         return NextResponse.json({ success: false, message: 'Could not verify payment. Please check your order history.' }, { status: 502 });
+diff --git a/src/app/checkout/status/page.js b/src/app/checkout/status/page.js
+index 90875ef..04c7636 100644
+--- a/src/app/checkout/status/page.js
++++ b/src/app/checkout/status/page.js
+@@ -22,6 +22,7 @@ function StatusContent() {
+     // 'loading' | 'success' | 'failed'
+     const [status, setStatus] = useState(paidByWallet ? 'success' : orderId ? 'loading' : 'failed');
+     const [errorMessage, setErrorMessage] = useState(orderId || paidByWallet ? '' : 'Invalid return URL. Missing order ID.');
++    const [devDetail, setDevDetail] = useState(''); // PHP reply, sent by the server only while developing
+     const hasRun = useRef(false);
+ 
+     useEffect(() => {
+@@ -52,8 +53,17 @@ function StatusContent() {
+             })
+             .catch((error) => {
+                 debugLog('/api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
++                const body = error.response?.data;
++                // The bank took the money but the order could not be finished. This is not
++                // a failed payment, so do not tell the buyer to pay again.
++                if (body?.isPaid) {
++                    setStatus('paid-unfinished');
++                    setErrorMessage(body.message || '');
++                    setDevDetail(body.detail || '');
++                    return;
++                }
+                 setStatus('failed');
+-                setErrorMessage(error.response?.data?.message || "Network error during verification.");
++                setErrorMessage(body?.message || "Network error during verification.");
+             });
+     }, [orderId, paidByWallet, clearCart]);
+ 
+@@ -68,6 +78,37 @@ function StatusContent() {
+         );
+     }
+ 
++    if (status === 'paid-unfinished') {
++        return (
++            <div className="flex flex-col items-center justify-center p-12 text-center">
++                <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-6">
++                    <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v4m0 4h.01M10.3 3.9L2.4 17.5A2 2 0 004.1 20.5h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg>
++                </div>
++                <h1 className="text-3xl font-bold text-[#0B2136] mb-4">Payment Received</h1>
++                <p className="text-gray-500 max-w-md mb-2">
++                    Your payment went through, but we could not finish creating your order automatically. Please do not pay again.
++                </p>
++                <p className="text-gray-500 max-w-md mb-2">{errorMessage}</p>
++                <p className="text-sm font-mono bg-gray-100 px-4 py-2 rounded-lg text-gray-600 my-4">
++                    Order ID: <strong>{orderId}</strong>
++                </p>
++                {devDetail && (
++                    <p className="text-xs font-mono text-left bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-900 max-w-md mb-6 break-words">
++                        dev only — PHP replied: {devDetail}
++                    </p>
++                )}
++                <div className="flex gap-4">
++                    <button onClick={() => window.location.reload()} className="bg-[#0B2136] text-white font-bold px-8 py-3 rounded-xl hover:bg-[#1B5E3B] transition-colors shadow-md">
++                        Check Again
++                    </button>
++                    <Link href="/support" className="bg-white border border-gray-200 text-gray-700 font-bold px-8 py-3 rounded-xl hover:bg-gray-50 transition-colors">
++                        Contact Support
++                    </Link>
++                </div>
++            </div>
++        );
++    }
++
+     if (status === 'failed') {
+         return (
+             <div className="flex flex-col items-center justify-center p-12 text-center">
+diff --git a/src/lib/paymentHelpers.js b/src/lib/paymentHelpers.js
+index 0cc9636..65c08d5 100644
+--- a/src/lib/paymentHelpers.js
++++ b/src/lib/paymentHelpers.js
+@@ -59,12 +59,11 @@ function assertCashfreeConfig() {
+     }
+ }
+ 
+-// Cashfree session ids end in "payment" exactly once. The API sometimes returns
+-// "...paymentpayment", and the checkout pop-up then rejects it as
+-// "payment_session_id is not present or is invalid".
+-export function cleanCashfreeSessionId(id) {
+-    return typeof id === 'string' ? id.trim().replace(/(?:payment){2,}$/, 'payment') : id;
+-}
++// NOTE: the payment_session_id must reach the browser EXACTLY as Cashfree returned
++// it. Cashfree's troubleshooting guide lists a trimmed or altered session id as a
++// cause of "payment_session_id is not present or is invalid", and its real ids can
++// end in "...paymentpayment". An earlier version of this file stripped that
++// suffix, which made every pop-up fail with that error. Do not edit the id.
+ 
+ function describeGatewayError(error) {
+     return {
+@@ -218,26 +217,20 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone,
+         });
+ 
+         const data = response.data;
+-        const rawSessionId = data.payment_session_id;
+-        const sessionId = cleanCashfreeSessionId(rawSessionId);
++        // Passed on untouched: see the note above about not modifying the session id.
++        const sessionId = data.payment_session_id;
+         dlog('Cashfree <- create order', {
+             httpStatus: response.status,
+             cfOrderId: data.cf_order_id,
+             orderStatus: data.order_status,
+-            hasSessionId: Boolean(rawSessionId),
+-            sessionIdTail: String(rawSessionId || '').slice(-24),
+-            sessionIdWasTrimmed: sessionId !== rawSessionId,
++            hasSessionId: Boolean(sessionId),
++            sessionIdLength: String(sessionId || '').length,
++            sessionIdTail: String(sessionId || '').slice(-24),
+         });
+ 
+-        if (!sessionId) {
++        if (!sessionId || typeof sessionId !== 'string') {
+             throw new Error(data?.message || 'Cashfree did not return a payment session');
+         }
+-        // Not blocking (Cashfree may change the format), but a session that does not
+-        // look like "session_...payment" is the first thing to check when the
+-        // pop-up says the session is invalid.
+-        if (!/^session_.+payment$/.test(sessionId)) {
+-            console.warn('Cashfree returned a payment session in an unexpected format', { sessionIdHead: sessionId.slice(0, 12), sessionIdTail: sessionId.slice(-12), length: sessionId.length });
+-        }
+ 
+         return {
+             sessionId,
+diff --git a/src/lib/server/orders.js b/src/lib/server/orders.js
+index d82ae91..2c9f1d2 100644
+--- a/src/lib/server/orders.js
++++ b/src/lib/server/orders.js
+@@ -253,20 +253,49 @@ export async function completeOrder(user, order, paymentReference) {
+             igst_amount: '0.00',
+             price: String(i.product.price),
+             item_total: String(i.product.price * i.quantity),
+-            warranty_days: warrantyDays(warranty.includes(String(i.product.id))),
++            // Off by default: invoice_creation.php answered "Column 'job_no' specified
++            // twice" (a SQL error in billing_product_items) once this field was sent,
++            // and it is the only line field the last working payload did not have.
++            // Set INVOICE_SEND_WARRANTY_DAYS=true after the backend team fixes the PHP.
++            ...(process.env.INVOICE_SEND_WARRANTY_DAYS === 'true'
++                ? { warranty_days: warrantyDays(warranty.includes(String(i.product.id))) }
++                : {}),
+         })),
+     };
+ 
++    // What PHP is about to be asked to book, so a rejection can be compared with
++    // the example payload: line total + extra charge should relate to tot_amount.
++    dlog('completeOrder: invoice totals being sent', {
++        lineTotal: items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
++        tot_taxable_amt: payload.tot_taxable_amt,
++        extra_amt: payload.extra_amt,
++        tot_amount: payload.tot_amount,
++        wallet_amount: payload.wallet_amount,
++        cashfree_amount: payload.cashfree_amount,
++        payment_mode: payload.payment_mode,
++        payment_reference: payload.payment_reference,
++        customer_gstno: payload.customer_gstno,
++    });
++
+     const res = await phpPost('invoice_creation.php', { BillJSON: payload }, { raw: true });
+     if (phpRejected(res)) {
+         console.error('invoice_creation.php rejected the invoice', { orderId: order.orderId, response: res });
+-        throw new OrderError(res?.message || res?.response?.message || 'Failed to create invoice.');
++        // Customers get the plain message; the PHP reply is for the developer only.
++        throw new OrderError('Failed to create invoice.', { detail: phpReplySummary(res) });
+     }
+     console.info('Invoice created', { orderId: order.orderId, status: res?.status ?? res?.response?.status });
+     dlog('completeOrder: invoice accepted', { orderId: order.orderId });
+     return res;
+ }
+ 
++// A short, readable version of what PHP replied, for the developer-only `detail`.
++function phpReplySummary(res) {
++    const pick = (o) => o?.message ?? o?.msg ?? o?.error ?? o?.status_message;
++    const message = pick(res) ?? pick(res?.response);
++    if (typeof message === 'string' && message.trim()) return message.trim();
++    try { return JSON.stringify(res).slice(0, 400); } catch { return String(res).slice(0, 400); }
++}
++
+ // PHP says "true"/"false" but the case and type vary ("False", false, 0, "error").
+ // Anything that is not a clear success is treated as a rejection, so a PO or
+ // invoice that PHP refused is never reported to the buyer as done.
