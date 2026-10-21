@@ -21,7 +21,7 @@ const php = axios.create({
  */
 // The PO and the invoice are the calls that matter: their full request and
 // reply are traced. Other calls get a one-line summary.
-const TRACE_FULL = new Set(['POCreate.php', 'invoice_creation.php']);
+const TRACE_FULL = new Set(['POCreate.php', 'invoice_creation.php', 'manage_address.php']);
 
 export async function phpPost(endpoint, body = {}, { token = process.env.PHP_STATIC_TOKEN, raw = false } = {}) {
     const started = Date.now();

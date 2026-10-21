@@ -39,6 +39,7 @@ export async function POST(request) {
             contact_name: clean(body.contact_name, 80),
             state: clean(body.state, 60),
             city: clean(body.city, 60),
+            plot_no: clean(body.plot_no, 100),
             locality: clean(body.locality, 150),
             landmark: clean(body.landmark, 100),
             contact_no: clean(body.contact_no, 10),
@@ -50,7 +51,8 @@ export async function POST(request) {
 
         const problem =
             !a.contact_name ? 'Please enter the contact name.'
-            : !a.locality ? 'Please enter the address (building, street, area).'
+            : !a.plot_no ? 'Please enter the flat / house no. / building.'
+            : !a.locality ? 'Please enter the street / area.'
             : !a.city ? 'Please enter the city.'
             : !a.state ? 'Please enter the state.'
             : !/^[1-9]\d{5}$/.test(a.pincode) ? 'Please enter a valid 6-digit pincode.'
@@ -59,9 +61,17 @@ export async function POST(request) {
             : '';
         if (problem) return NextResponse.json({ success: false, message: problem }, { status: 400 });
 
+        // The session keeps crm_party_code as a string, but manage_address.php
+        // type-checks the user id ("Data type is not valid for userid") and
+        // wants a number. Send it numeric when it is numeric, under both key
+        // spellings the PHP API uses.
+        const code = String(user.crm_party_code).trim();
+        const userId = /^\d+$/.test(code) ? Number(code) : code;
+
         const payload = await phpPost('manage_address.php', {
             ...a,
-            user_id: user.crm_party_code,
+            user_id: userId,
+            userid: userId,
             reqtype: 'A',
             addressid: '',
         });

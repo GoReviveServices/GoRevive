@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const EMPTY = { contact_name: '', contact_no: '', alternate_no: '', locality: '', landmark: '', city: '', state: '', pincode: '', addrs_type: 'Office' }
+const EMPTY = { contact_name: '', contact_no: '', alternate_no: '', plot_no: '', locality: '', landmark: '', city: '', state: '', pincode: '', addrs_type: 'Office' }
 const TYPES = ['Office', 'Home', 'Other']
 const input = 'block w-full rounded-[10px] border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#1B5E3B] focus:ring-2 focus:ring-[#1B5E3B]/20'
 
@@ -32,7 +32,8 @@ export default function AddressForm({ defaultName = '', defaultMobile = '', onSu
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Contact name *"><input required maxLength={80} value={v.contact_name} onChange={set('contact_name')} className={input} autoComplete="name" /></Field>
                 <Field label="Mobile number *"><input required inputMode="numeric" pattern="[6-9][0-9]{9}" title="10-digit mobile number" value={v.contact_no} onChange={digits('contact_no', 10)} className={input} autoComplete="tel-national" /></Field>
-                <Field label="Address (building, street, area) *" className="sm:col-span-2"><input required maxLength={150} value={v.locality} onChange={set('locality')} className={input} autoComplete="street-address" /></Field>
+                <Field label="Flat / house no. / building *"><input required maxLength={100} value={v.plot_no} onChange={set('plot_no')} className={input} autoComplete="address-line1" /></Field>
+                <Field label="Street / area / locality *"><input required maxLength={150} value={v.locality} onChange={set('locality')} className={input} autoComplete="address-line2" /></Field>
                 <Field label="Landmark (optional)"><input maxLength={100} value={v.landmark} onChange={set('landmark')} className={input} /></Field>
                 <Field label="Alternate number (optional)"><input inputMode="numeric" pattern="[6-9][0-9]{9}" title="10-digit mobile number" value={v.alternate_no} onChange={digits('alternate_no', 10)} className={input} /></Field>
                 <Field label="City *"><input required maxLength={60} value={v.city} onChange={set('city')} className={input} autoComplete="address-level2" /></Field>
