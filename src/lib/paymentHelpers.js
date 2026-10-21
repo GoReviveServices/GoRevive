@@ -59,12 +59,11 @@ function assertCashfreeConfig() {
     }
 }
 
-// Cashfree session ids end in "payment" exactly once. The API sometimes returns
-// "...paymentpayment", and the checkout pop-up then rejects it as
-// "payment_session_id is not present or is invalid".
-export function cleanCashfreeSessionId(id) {
-    return typeof id === 'string' ? id.trim().replace(/(?:payment){2,}$/, 'payment') : id;
-}
+// NOTE: the payment_session_id must reach the browser EXACTLY as Cashfree returned
+// it. Cashfree's troubleshooting guide lists a trimmed or altered session id as a
+// cause of "payment_session_id is not present or is invalid", and its real ids can
+// end in "...paymentpayment". An earlier version of this file stripped that
+// suffix, which made every pop-up fail with that error. Do not edit the id.
 
 function describeGatewayError(error) {
     return {
@@ -218,25 +217,19 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
         });
 
         const data = response.data;
-        const rawSessionId = data.payment_session_id;
-        const sessionId = cleanCashfreeSessionId(rawSessionId);
+        // Passed on untouched: see the note above about not modifying the session id.
+        const sessionId = data.payment_session_id;
         dlog('Cashfree <- create order', {
             httpStatus: response.status,
             cfOrderId: data.cf_order_id,
             orderStatus: data.order_status,
-            hasSessionId: Boolean(rawSessionId),
-            sessionIdTail: String(rawSessionId || '').slice(-24),
-            sessionIdWasTrimmed: sessionId !== rawSessionId,
+            hasSessionId: Boolean(sessionId),
+            sessionIdLength: String(sessionId || '').length,
+            sessionIdTail: String(sessionId || '').slice(-24),
         });
 
-        if (!sessionId) {
+        if (!sessionId || typeof sessionId !== 'string') {
             throw new Error(data?.message || 'Cashfree did not return a payment session');
-        }
-        // Not blocking (Cashfree may change the format), but a session that does not
-        // look like "session_...payment" is the first thing to check when the
-        // pop-up says the session is invalid.
-        if (!/^session_.+payment$/.test(sessionId)) {
-            console.warn('Cashfree returned a payment session in an unexpected format', { sessionIdHead: sessionId.slice(0, 12), sessionIdTail: sessionId.slice(-12), length: sessionId.length });
         }
 
         return {
