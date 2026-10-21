@@ -78,6 +78,8 @@ export default function OrdersPage() {
     }
 
     const orderArray = Object.values(orders).sort((a, b) => new Date(b.date) - new Date(a.date));
+            console.log('Orders fetch payload:', orderArray);
+    
 
     return (
         <div className="min-h-screen bg-[#F8FAFC] pb-24 py-12">

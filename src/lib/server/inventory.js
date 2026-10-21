@@ -44,7 +44,6 @@ export const cleanStorage = (value) =>
         .join(' + ');
 
 export function toUnit(item, tier = 'customer') {
-    console.log('toUnit', item, tier);
     const price = priceFor(item, tier);
     const mrp = realMrp(item);
     const id = item.imei1 || item.imei || '';

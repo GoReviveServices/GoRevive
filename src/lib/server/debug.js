@@ -1,9 +1,9 @@
 import 'server-only';
 
-// Step-by-step trace of checkout, payment verification and the PHP calls, so a
-// missing PO or invoice can be traced to the exact step. Everything is printed
-// with the prefix [checkout-debug]. On by default; set CHECKOUT_DEBUG=false to
-// silence it. Secrets (tokens, keys, cookies) are masked.
+// Logs the PO creation call (POCreate.php): the request we send and the reply we
+// get, so a missing PO can be traced. Printed with the prefix [checkout-debug].
+// On by default; set CHECKOUT_DEBUG=false to silence it. Secrets (tokens, keys,
+// cookies) are masked.
 const SECRET_KEY = /token|secret|password|authorization|api[-_]?key|cookie/i;
 const MAX_LINE = 6000;
 

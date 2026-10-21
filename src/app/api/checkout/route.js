@@ -4,7 +4,6 @@ import { createOrder, completeOrder, OrderError } from '@/lib/server/orders';
 import { setPendingOrder, completeOnce } from '@/lib/server/pendingOrder';
 import { createHdfcSession, createCashfreeOrder } from '@/lib/paymentHelpers';
 import { rateLimit } from '@/lib/server/rateLimit';
-import { dlog } from '@/lib/server/debug';
 
 const GATEWAYS = ['CASHFREE', 'HDFC'];
 const CASHFREE_METHODS = new Set(['cc', 'dc', 'ccc', 'ppc', 'nb', 'upi', 'paypal', 'app', 'paylater', 'cardlessemi', 'dcemi', 'ccemi', 'banktransfer']);
@@ -33,7 +32,6 @@ export async function POST(request) {
 
         // warrantyIds is only the buyer's choice; createOrder checks each id
         // against the cart and prices the warranty itself.
-        dlog('checkout: request', { user: user.crm_party_code, addressId, gateway, option, warrantyIds, host: request.headers.get('host'), proto: request.headers.get('x-forwarded-proto') });
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
         let payment;
 
@@ -69,7 +67,6 @@ export async function POST(request) {
                         : undefined,
                 });
             }
-            dlog('checkout: gateway session created', { orderId, gateway, hasSessionId: Boolean(payment.sessionId), hasPaymentUrl: Boolean(payment.paymentUrl), returnUrl });
         };
 
         const order = await createOrder(
@@ -80,7 +77,6 @@ export async function POST(request) {
 
         // Wallet covers everything: no gateway, finish now.
         if (order.payable === 0) {
-            dlog('checkout: wallet covers everything, completing now', { orderId: order.orderId });
             await completeOnce(order.orderId, () => completeOrder(user, order, `WALLET-${order.orderId}`));
             return NextResponse.json({ success: true, completed: true, orderId: order.orderId, gateway: 'WALLET' });
         }
@@ -105,11 +101,9 @@ export async function POST(request) {
             cashfreeMode: payment.mode,
         });
         await setPendingOrder(response, order);
-        dlog('checkout: pending-order cookie set', { orderId: order.orderId, httpsOnlyFlag: process.env.NODE_ENV === 'production' });
         return response;
     } catch (error) {
         if (error instanceof OrderError) {
-            dlog('checkout: refused', { message: error.message, extra: error.extra });
             return NextResponse.json({ success: false, message: error.message, ...error.extra }, { status: 400 });
         }
         console.error('Checkout error:', error.message, error.stack);

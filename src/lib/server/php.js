@@ -19,9 +19,8 @@ const php = axios.create({
  * POST to a PHP endpoint with the static token injected.
  * Returns the unwrapped payload (`data.response` when present, else `data`).
  */
-// The PO and the invoice are the calls that matter: their full request and
-// reply are traced. Other calls get a one-line summary.
-const TRACE_FULL = new Set(['POCreate.php', 'invoice_creation.php', 'manage_address.php']);
+// Only PO creation is traced: its full request and reply are logged.
+const TRACE_FULL = new Set(['POCreate.php']);
 
 export async function phpPost(endpoint, body = {}, { token = process.env.PHP_STATIC_TOKEN, raw = false } = {}) {
     const started = Date.now();
@@ -30,15 +29,11 @@ export async function phpPost(endpoint, body = {}, { token = process.env.PHP_STA
     try {
         res = await php.post(`/${endpoint}`, { ...body, token });
     } catch (error) {
-        dlog(`PHP !! ${endpoint} request failed`, { message: error.message, code: error.code, httpStatus: error.response?.status, replyBody: error.response?.data, ms: Date.now() - started });
+        if (TRACE_FULL.has(endpoint)) dlog(`PHP !! ${endpoint} request failed`, { message: error.message, code: error.code, httpStatus: error.response?.status, replyBody: error.response?.data, ms: Date.now() - started });
         throw error;
     }
     const ms = Date.now() - started;
-    if (TRACE_FULL.has(endpoint)) {
-        dlog(`PHP <- ${endpoint} reply`, { httpStatus: res.status, ms, contentType: res.headers?.['content-type'], bodyType: typeof res.data, body: res.data });
-    } else {
-        dlog(`PHP <- ${endpoint}`, { httpStatus: res.status, ms, status: res.data?.status ?? res.data?.response?.status });
-    }
+    if (TRACE_FULL.has(endpoint)) dlog(`PHP <- ${endpoint} reply`, { httpStatus: res.status, ms, contentType: res.headers?.['content-type'], bodyType: typeof res.data, body: res.data });
     if (raw) return res.data;
     return res.data?.response ?? res.data;
 }

@@ -91,20 +91,12 @@ const istTimestamp = (d = new Date()) => {
  * Returns the order snapshot that payment and invoicing are checked against.
  */
 export async function createOrder(user, { addressId, gateway, warrantyIds = [] }, { beforePO } = {}) {
-    dlog('createOrder: start', { user: user.crm_party_code, addressId, gateway, warrantyIds });
     const [items, walletBalance, address, kyc] = await Promise.all([
         getServerCart(user.crm_party_code),
         getWalletBalance(user.crm_party_code),
         resolveAddress(user, addressId),
         fetchKycState(user.crm_party_code),
     ]);
-    dlog('createOrder: inputs read from PHP', {
-        cartLines: items.length,
-        units: items.reduce((n, i) => n + i.quantity, 0),
-        walletBalance,
-        address,
-        kycState: kyc?.state ?? null,
-    });
 
     // Business documents must be uploaded. They do not have to be approved yet:
     // the accounts team verifies them manually, so approval is not checked here.
@@ -123,7 +115,6 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
     const warranty = [...new Set((Array.isArray(warrantyIds) ? warrantyIds : []).map(String))].filter((id) => cartIds.has(id));
     const totals = computeOrderTotals(items, walletBalance, warranty);
     if (totals.units < MIN_ORDER_UNITS) throw new OrderError(`Minimum order is ${MIN_ORDER_UNITS} units.`);
-    dlog('createOrder: totals (server-side)', totals);
     const orderId = `GR_${user.crm_party_code}_${Date.now()}`;
     const orderDate = istTimestamp();
     const paymentMode = totals.payable === 0 ? 'Wallet' : gateway;
@@ -194,11 +185,9 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
  * Re-reads the cart and refuses if it no longer matches what was paid for.
  */
 export async function completeOrder(user, order, paymentReference) {
-    dlog('completeOrder: start', { orderId: order.orderId, paymentReference, payable: order.payable, total: order.total });
     const items = await getServerCart(user.crm_party_code);
     const warranty = order.warrantyIds || [];
     const nowFingerprint = cartFingerprint(items, warranty);
-    dlog('completeOrder: cart re-read', { cartLines: items.length, fingerprintMatches: nowFingerprint === order.fingerprint });
     if (nowFingerprint !== order.fingerprint) {
         console.error('completeOrder: cart changed after payment started; no invoice created', { orderId: order.orderId, cartLines: items.length });
         throw new OrderError('Your cart changed after payment started. Our team will contact you to reconcile this order.');
@@ -265,17 +254,6 @@ export async function completeOrder(user, order, paymentReference) {
 
     // What PHP is about to be asked to book, so a rejection can be compared with
     // the example payload: line total + extra charge should relate to tot_amount.
-    dlog('completeOrder: invoice totals being sent', {
-        lineTotal: items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
-        tot_taxable_amt: payload.tot_taxable_amt,
-        extra_amt: payload.extra_amt,
-        tot_amount: payload.tot_amount,
-        wallet_amount: payload.wallet_amount,
-        cashfree_amount: payload.cashfree_amount,
-        payment_mode: payload.payment_mode,
-        payment_reference: payload.payment_reference,
-        customer_gstno: payload.customer_gstno,
-    });
 
     const res = await phpPost('invoice_creation.php', { BillJSON: payload }, { raw: true });
     if (phpRejected(res)) {
@@ -283,8 +261,6 @@ export async function completeOrder(user, order, paymentReference) {
         // Customers get the plain message; the PHP reply is for the developer only.
         throw new OrderError('Failed to create invoice.', { detail: phpReplySummary(res) });
     }
-    console.info('Invoice created', { orderId: order.orderId, status: res?.status ?? res?.response?.status });
-    dlog('completeOrder: invoice accepted', { orderId: order.orderId });
     return res;
 }
 

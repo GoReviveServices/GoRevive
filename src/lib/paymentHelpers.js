@@ -1,6 +1,5 @@
 import 'server-only';
 import axios from 'axios';
-import { dlog } from '@/lib/server/debug';
 
 const gatewayHttp = axios.create({ timeout: 20000 });
 
@@ -8,20 +7,6 @@ const gatewayHttp = axios.create({ timeout: 20000 });
 // the gateway reject the keys, so every gateway setting is read through this.
 const env = (name) => String(process.env[name] ?? '').trim();
 const cashfreeBaseUrl = () => env('CASHFREE_BASE_URL').replace(/\/+$/, '');
-
-// What the app is configured to talk to (no secrets): enough to spot test keys
-// on the production URL, an http return URL, or a missing variable.
-function cashfreeEnv() {
-    const secret = env('CASHFREE_SECRET_KEY');
-    return {
-        baseUrl: cashfreeBaseUrl(),
-        appIdPrefix: env('CASHFREE_APP_ID').slice(0, 4),
-        hasAppId: Boolean(env('CASHFREE_APP_ID')),
-        keyEnvironment: (secret.match(/^cfsk_ma_(test|prod)/) || [])[1] || (secret ? 'unrecognised' : 'MISSING'),
-        browserMode: getCashfreeMode(),
-        siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
-    };
-}
 
 // "production" when the server talks to api.cashfree.com, otherwise "sandbox".
 // A session created in one environment is invalid in the other.
@@ -64,17 +49,6 @@ function assertCashfreeConfig() {
 // cause of "payment_session_id is not present or is invalid", and its real ids can
 // end in "...paymentpayment". An earlier version of this file stripped that
 // suffix, which made every pop-up fail with that error. Do not edit the id.
-
-function describeGatewayError(error) {
-    return {
-        message: error.message,
-        code: error.code,
-        httpStatus: error.response?.status,
-        contentType: error.response?.headers?.['content-type'],
-        replyBody: error.response?.data,
-        replyHeaders: error.response?.headers ? { server: error.response.headers.server, 'cf-ray': error.response.headers['cf-ray'], 'x-request-id': error.response.headers['x-request-id'] } : undefined,
-    };
-}
 
 /**
  * ==========================================
@@ -204,9 +178,7 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
                     : payment_methods_filters?.methods?.values || undefined
             },
         };
-        if (!payload.order_meta.return_url) dlog('Cashfree: return_url left out because it is not https', { returnUrl });
 
-        dlog('Cashfree -> create order', { env: cashfreeEnv(), orderId, amount: payload.order_amount, returnUrl, paymentMethods: payload.order_meta.payment_methods, customerId });
         const response = await gatewayHttp.post(`${cashfreeBaseUrl()}/orders`, payload, {
             headers: {
                 'x-client-id': env('CASHFREE_APP_ID'),
@@ -219,14 +191,6 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
         const data = response.data;
         // Passed on untouched: see the note above about not modifying the session id.
         const sessionId = data.payment_session_id;
-        dlog('Cashfree <- create order', {
-            httpStatus: response.status,
-            cfOrderId: data.cf_order_id,
-            orderStatus: data.order_status,
-            hasSessionId: Boolean(sessionId),
-            sessionIdLength: String(sessionId || '').length,
-            sessionIdTail: String(sessionId || '').slice(-24),
-        });
 
         if (!sessionId || typeof sessionId !== 'string') {
             throw new Error(data?.message || 'Cashfree did not return a payment session');
@@ -239,7 +203,6 @@ export async function createCashfreeOrder({ orderId, amount, customerId, phone, 
             mode: getCashfreeMode(),
         };
     } catch (error) {
-        dlog('Cashfree !! create order FAILED', { ...describeGatewayError(error), env: cashfreeEnv() });
         throw new Error(error.response?.data?.message || error.message || "Failed to create Cashfree order");
     }
 }
@@ -272,7 +235,6 @@ export async function verifyCashfreeOrder(orderId) {
             reference: data.cf_order_id || orderId,
         };
     } catch (error) {
-        dlog('Cashfree !! verify order FAILED', { orderId, ...describeGatewayError(error), env: cashfreeEnv() });
         throw new Error(error.response?.data?.message || "Failed to verify Cashfree order status");
     }
 }

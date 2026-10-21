@@ -18,11 +18,6 @@ import { computeOrderTotals } from '@/lib/pricing';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount).replace(/\s/g, '');
 
-// Browser-side trace for development only; nothing is logged on the live site.
-const debugLog = (...args) => {
-    if (process.env.NODE_ENV !== 'production') console.log('[checkout-debug]', ...args);
-};
-
 const STEPS = [
     { id: 1, name: 'Shipping Address' },
     { id: 2, name: 'B2B Verification' },
@@ -279,7 +274,6 @@ export default function CheckoutPage() {
 
         try {
             const { data } = await api.post('/checkout', { addressId: selectedAddressId, gateway, option, warrantyIds });
-            debugLog('/api/checkout reply', { success: data.success, completed: data.completed, orderId: data.orderId, gateway: data.gateway, cashfreeMode: data.cashfreeMode, hasSessionId: Boolean(data.sessionId), sessionIdTail: String(data.sessionId || '').slice(-12), hasPaymentUrl: Boolean(data.paymentUrl), message: data.message });
 
             if (!data.success) {
                 toast.error(data.message || 'Failed to start payment.', { id: toastId });
@@ -316,7 +310,6 @@ export default function CheckoutPage() {
             toast.dismiss(toastId);
 
             const result = await cashfree.checkout({ paymentSessionId: data.sessionId, redirectTarget: '_modal' });
-            debugLog('Cashfree modal finished', { error: result?.error || null, paymentDetails: result?.paymentDetails || null, redirect: Boolean(result?.redirect) });
 
             if (result?.error) {
                 // The buyer may have approved the payment (a UPI request, say) and closed
@@ -333,7 +326,6 @@ export default function CheckoutPage() {
                 router.push(statusUrl);
             }
         } catch (error) {
-            debugLog('checkout request failed', { status: error.response?.status, data: error.response?.data, message: error.message });
             const baseMessage = error.response?.data?.message || error.message || 'Network error while connecting to bank.';
             // `detail` is only sent by the server while developing.
             const detail = error.response?.data?.detail;

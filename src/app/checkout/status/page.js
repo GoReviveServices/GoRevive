@@ -6,11 +6,6 @@ import Link from 'next/link';
 import api from '@/lib/apiClient';
 import { useCart } from '@/components/utils/Context/CartContext';
 
-// Browser-side trace for development only; nothing is logged on the live site.
-const debugLog = (...args) => {
-    if (process.env.NODE_ENV !== 'production') console.log('[checkout-debug]', ...args);
-};
-
 function StatusContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -39,10 +34,8 @@ function StatusContent() {
 
         // The server checks the payment with the bank, matches the amount to the
         // order it created, and creates the invoice exactly once.
-        debugLog('status page: asking server to verify', { orderId });
         api.post('/payment/verify', { orderId })
             .then(({ data }) => {
-                debugLog('/api/payment/verify reply', data);
                 if (data?.success && data?.isPaid) {
                     clearCart();
                     setStatus('success');
@@ -52,7 +45,6 @@ function StatusContent() {
                 }
             })
             .catch((error) => {
-                debugLog('/api/payment/verify failed', { status: error.response?.status, data: error.response?.data, message: error.message });
                 const body = error.response?.data;
                 // The bank took the money but the order could not be finished. This is not
                 // a failed payment, so do not tell the buyer to pay again.

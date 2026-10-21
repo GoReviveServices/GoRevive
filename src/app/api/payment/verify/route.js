@@ -3,7 +3,6 @@ import { verifyHdfcOrder, verifyCashfreeOrder } from '@/lib/paymentHelpers';
 import { getSessionUser, unauthorized } from '@/lib/server/session';
 import { getPendingOrder, completeOnce, wasCompleted, PENDING_COOKIE } from '@/lib/server/pendingOrder';
 import { completeOrder, OrderError } from '@/lib/server/orders';
-import { dlog } from '@/lib/server/debug';
 
 const verifyWithGateway = (gateway, orderId) =>
     gateway === 'HDFC' ? verifyHdfcOrder(orderId) : verifyCashfreeOrder(orderId);
@@ -19,18 +18,15 @@ export async function POST(request) {
 
     try {
         const { orderId } = await request.json();
-        dlog('verify: request', { orderId, user: user.crm_party_code });
         if (!orderId || !String(orderId).startsWith(`GR_${user.crm_party_code}_`)) {
             return NextResponse.json({ success: false, message: 'Order not found.' }, { status: 404 });
         }
 
         if (wasCompleted(orderId)) {
-            dlog('verify: already completed on this instance, nothing to do', { orderId });
             return NextResponse.json({ success: true, isPaid: true, status: 'COMPLETED' });
         }
 
         const order = await getPendingOrder();
-        dlog('verify: pending order from browser', { found: Boolean(order), pendingOrderId: order?.orderId, matches: order?.orderId === orderId });
 
         // No pending order (e.g. the page was refreshed after completion):
         // report the gateway's status but never create another invoice here.
@@ -40,7 +36,6 @@ export async function POST(request) {
             for (const gateway of ['CASHFREE', 'HDFC']) {
                 try {
                     const result = await verifyWithGateway(gateway, orderId);
-                    dlog('verify: (no pending order) gateway status only, NO invoice will be created', { gateway, ...result });
                     return NextResponse.json({ success: true, isPaid: result.isPaid, status: result.status });
                 } catch {
                     /* try the next gateway */
@@ -50,7 +45,6 @@ export async function POST(request) {
         }
 
         const result = await verifyWithGateway(order.gateway, orderId);
-        dlog('verify: gateway result', { gateway: order.gateway, ...result, expectedPayable: order.payable });
         if (!result.isPaid) {
             return NextResponse.json({ success: true, isPaid: false, status: result.status, message: 'Payment was not completed.' });
         }
@@ -65,16 +59,13 @@ export async function POST(request) {
             );
         }
 
-        dlog('verify: payment matches, creating invoice', { orderId });
         await completeOnce(orderId, () => completeOrder(user, order, result.reference));
-        dlog('verify: invoice step finished', { orderId });
 
         const response = NextResponse.json({ success: true, isPaid: true, status: result.status });
         response.cookies.delete(PENDING_COOKIE);
         return response;
     } catch (error) {
         if (error instanceof OrderError) {
-            dlog('verify: stopped by order error (payment was taken, no invoice)', { message: error.message, detail: error.extra?.detail });
             return NextResponse.json({
                 success: false,
                 isPaid: true,
