@@ -13,6 +13,7 @@ export async function GET() {
         if (isTrue(payload) && Array.isArray(payload?.data)) {
             return NextResponse.json({ success: true, orders: payload.data }, { headers: { 'Cache-Control': 'private, no-store' } });
         }
+        console.log('Orders fetch payload:', payload);
         return NextResponse.json({ success: false, message: payload?.message || 'No orders found.' }, { status: 404 });
     } catch (error) {
         console.error('Orders fetch error:', error.message);

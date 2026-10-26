@@ -231,7 +231,7 @@ export async function completeOrder(user, order, paymentReference) {
             imei1: i.product.id,
             imei2: '',
             disccount: '0.00',
-            item_category: i.product.condition || i.product.category || 'D',
+            item_category: i.product.condition || i.product.category,
             purchase_price: i.product.price,
             taxable_value: i.product.price * i.quantity,
             cgst_per: '0.00',
@@ -242,20 +242,19 @@ export async function completeOrder(user, order, paymentReference) {
             igst_amount: '0.00',
             price: String(i.product.price),
             item_total: String(i.product.price * i.quantity),
-            // Off by default: invoice_creation.php answered "Column 'job_no' specified
-            // twice" (a SQL error in billing_product_items) once this field was sent,
-            // and it is the only line field the last working payload did not have.
-            // Set INVOICE_SEND_WARRANTY_DAYS=true after the backend team fixes the PHP.
-            ...(process.env.INVOICE_SEND_WARRANTY_DAYS === 'true'
-                ? { warranty_days: warrantyDays(warranty.includes(String(i.product.id))) }
-                : {}),
+            warranty_days: warrantyDays(warranty.includes(String(i.product.id))),
         })),
     };
+
+    console.log(payload)
+
+
 
     // What PHP is about to be asked to book, so a rejection can be compared with
     // the example payload: line total + extra charge should relate to tot_amount.
 
     const res = await phpPost('invoice_creation.php', { BillJSON: payload }, { raw: true });
+    console.log(res)
     if (phpRejected(res)) {
         console.error('invoice_creation.php rejected the invoice', { orderId: order.orderId, response: res });
         // Customers get the plain message; the PHP reply is for the developer only.
