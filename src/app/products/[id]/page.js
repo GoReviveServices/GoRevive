@@ -1,313 +1,111 @@
-"use client";
+import { notFound, permanentRedirect } from 'next/navigation';
+import { findBundle, getProductBundles, getUnitsForModel } from '@/lib/server/inventory';
+import { getPriceTier } from '@/lib/server/session';
+import { SITE_URL, SITE_NAME, BASE_OPEN_GRAPH, DEFAULT_OG_IMAGE, withBrand } from '@/lib/site';
+import JsonLd from '@/components/utils/SEO/JsonLd';
+import ProductDetailClient from './ProductDetailClient';
+import { faqSchema } from './productFaq';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useDashboard } from '@/components/utils/Context/DashboardContext';
-import { useAuth } from '@/components/utils/Context/AuthContext';
-import { useCart } from '@/components/utils/Context/CartContext';
-import api from '@/lib/apiClient';
-import toast from 'react-hot-toast';
+export const dynamic = 'force-dynamic';
 
-import ImageGallery from './components/ImageGallery';
-import Configurator from './components/Configurator';
-import SerializedTable from './components/SerializedTable';
-import DetailedSpecs from './components/DetailedSpecs';
+const describe = (p) => {
+    const specs = [p.baseSpecs?.ram, p.baseSpecs?.storage].filter(Boolean).join(' / ');
+    const grades = p.availableConditions?.length ? ` Grades ${p.availableConditions.join(', ')}.` : '';
+    return `Buy certified pre-owned ${withBrand(p.brand, p.model)}${specs ? ` (${specs})` : ''} in bulk from GoRevive. Quality-checked, graded and warranty-backed IT hardware at B2B prices.${grades}`
+        .replace(/\s+/g, ' ')
+        .trim();
+};
 
-// Format Helper
-const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount).replace(/\s/g, '');
+const clip = (text, max = 158) => (text.length <= max ? text : `${text.slice(0, text.lastIndexOf(' ', max)).replace(/[,.;:–-]+$/, '')}…`);
 
-export default function ProductDetailPage() {
-    const params = useParams();
-    const router = useRouter();
-    const productId = decodeURIComponent(params.id);
+export async function generateMetadata({ params }) {
+    const { id } = await params;
+    const product = await findBundle(id).catch(() => null);
+    if (!product) return { title: 'Product not found', robots: { index: false } };
 
-    const { productData, isLoading: isDashboardLoading } = useDashboard();
-    const { isAuthenticated } = useAuth();
-    const { addToCart, addMultipleToCart, cartItems } = useCart();
+    const title = `Pre-Owned ${withBrand(product.brand, product.model)}`.replace(/\s+/g, ' ');
+    const url = `/products/${product.slug}`;
+    return {
+        title,
+        description: clip(describe(product)),
+        alternates: { canonical: url },
+        openGraph: {
+            ...BASE_OPEN_GRAPH,
+            url,
+            title: `${title} | ${SITE_NAME}`,
+            description: clip(describe(product)),
+            images: product.image ? [{ url: product.image, alt: title }] : [DEFAULT_OG_IMAGE],
+        },
+        twitter: { card: 'summary_large_image', title, description: clip(describe(product)), images: product.image ? [product.image] : [DEFAULT_OG_IMAGE] },
+    };
+}
 
-    const [baseProduct, setBaseProduct] = useState(null);
-    const [familyUnits, setFamilyUnits] = useState([]);
-    const [isPageLoading, setIsPageLoading] = useState(true);
-    const [mainImage, setMainImage] = useState(null);
+export default async function ProductPage({ params }) {
+    const { id } = await params;
+    // If the inventory service is down this throws and app/error.js is shown,
+    // instead of a misleading 404 that could get the page dropped from Google.
+    const tier = await getPriceTier();
+    const product = await findBundle(id, tier);
+    if (!product) notFound();
 
-    const [selectedGrade, setSelectedGrade] = useState(null);
-    const [selectedSpecs, setSelectedSpecs] = useState({});
-    
-    // Quick Order State
-    const [quickQty, setQuickQty] = useState(1);
+    // Old URLs used the raw model name; send them to the clean slug (301-equivalent).
+    if (decodeURIComponent(id) !== product.slug) permanentRedirect(`/products/${product.slug}`);
 
-    // ==========================================
-    // 1. DATA INITIALIZATION
-    // ==========================================
-    useEffect(() => {
-        if (isDashboardLoading) return;
+    const [units, bundles] = await Promise.all([
+        getUnitsForModel(product.id, tier).catch(() => []),
+        getProductBundles(tier).catch(() => []),
+    ]);
 
-        const initialProduct = productData?.find(bundle => 
-            bundle.id === productId || bundle.model_code === productId
-        );
+    const related = bundles
+        .filter((b) => b.slug !== product.slug && b.category === product.category)
+        .sort((a, b) => (b.brand === product.brand) - (a.brand === product.brand) || b.totalStock - a.totalStock)
+        .slice(0, 8)
+        .map(({ slug, brand, model, image }) => ({ slug, brand, model, image }));
 
-        if (!initialProduct) {
-            setIsPageLoading(false);
-            return;
-        }
-
-        setBaseProduct(initialProduct);
-        setMainImage(initialProduct.image);
-
-        const fetchDetailedInventory = async () => {
-            try {
-                const response = await api.post('/products/details', { 
-                    modelCode: initialProduct.model_code || initialProduct.id 
-                });
-                
-                if (response.data?.success && response.data?.units) {
-                    setFamilyUnits(response.data.units);
-                }
-            } catch (error) {
-                console.error("Failed to load serialized inventory:", error);
-            } finally {
-                setIsPageLoading(false);
+    const url = `${SITE_URL}/products/${product.slug}`;
+    const productSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.model,
+        url,
+        image: [product.image, product.secondaryImage].filter(Boolean),
+        description: describe(product),
+        brand: product.brand ? { '@type': 'Brand', name: product.brand } : undefined,
+        category: product.category,
+        itemCondition: 'https://schema.org/RefurbishedCondition',
+        // Prices are shown only to signed-in business buyers, so no Offer price
+        // is published here. Set PUBLIC_PRICES_IN_SCHEMA=true to include it.
+        // Schema only ever publishes the public customer price.
+        ...(process.env.PUBLIC_PRICES_IN_SCHEMA === 'true' && tier === 'customer' && product.startingPrice > 0
+            ? {
+                offers: {
+                    '@type': 'AggregateOffer',
+                    priceCurrency: 'INR',
+                    lowPrice: product.startingPrice,
+                    offerCount: product.totalStock,
+                    availability: product.totalStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                    itemCondition: 'https://schema.org/RefurbishedCondition',
+                },
             }
-        };
-
-        fetchDetailedInventory();
-    }, [productId, productData, isDashboardLoading]);
-
-    // ==========================================
-    // 2. EXTRACT OPTIONS
-    // ==========================================
-    const availableGrades = useMemo(() => {
-        const grades = new Set();
-        familyUnits.forEach(u => grades.add(u.condition));
-        return Array.from(grades).sort();
-    }, [familyUnits]);
-
-    const specOptions = useMemo(() => {
-        const options = {};
-        familyUnits.forEach(u => {
-            if (u.specs) {
-                Object.entries(u.specs).forEach(([key, value]) => {
-                    if (!value || value === "/" || value === "N/A") return;
-                    if (!options[key]) options[key] = new Set();
-                    options[key].add(String(value));
-                });
-            }
-        });
-        
-        const varyingSpecs = {};
-        Object.keys(options).forEach(key => varyingSpecs[key] = Array.from(options[key]).sort());
-        return varyingSpecs;
-    }, [familyUnits]);
-
-    // Auto-select initial options
-    useEffect(() => {
-        if (availableGrades.length > 0 && !selectedGrade) setSelectedGrade(availableGrades[0]);
-        if (Object.keys(specOptions).length > 0 && Object.keys(selectedSpecs).length === 0) {
-            const initial = {};
-            Object.keys(specOptions).forEach(k => initial[k] = specOptions[k][0]);
-            setSelectedSpecs(initial);
-        }
-    }, [availableGrades, specOptions, selectedGrade, selectedSpecs]);
-
-    // ==========================================
-    // 3. MATCHING LOGIC & QUICK ADD
-    // ==========================================
-    const matchingUnits = useMemo(() => {
-        return familyUnits.filter(unit => {
-            if (unit.condition !== selectedGrade) return false;
-            if (unit.specs) {
-                for (const [key, selectedValue] of Object.entries(selectedSpecs)) {
-                    if (unit.specs[key] && String(unit.specs[key]) !== selectedValue) return false;
-                }
-            }
-            return true;
-        });
-    }, [familyUnits, selectedGrade, selectedSpecs]);
-
-    const representativeUnit = matchingUnits.length > 0 ? matchingUnits[0] : familyUnits[0];
-
-    // Filter out units that the user already has in their cart
-    const availableMatchingUnits = useMemo(() => {
-        if (!cartItems) return matchingUnits;
-        const cartIds = new Set(cartItems.map(item => item.product.id));
-        return matchingUnits.filter(u => !cartIds.has(u.id));
-    }, [matchingUnits, cartItems]);
-
-    
-
-    const handleQuickAdd = async (redirect = false) => {
-        if (availableMatchingUnits.length < quickQty) {
-            toast.error(`Only ${availableMatchingUnits.length} unallocated units available.`, { position: 'bottom-center' });
-            return;
-        }
-        
-        try {
-            if (quickQty === 1) {
-                await addToCart(availableMatchingUnits[0], 1);
-            } else {
-                const unitsToAdd = availableMatchingUnits.slice(0, quickQty);
-                await addMultipleToCart(unitsToAdd);
-            }
-            // toast.success('Added to order!', { id: toastId });
-            setQuickQty(1); 
-
-            if (redirect) {
-                router.push('/cart');
-            }
-        } catch (error) {
-            // toast.error('Failed to allocate units.', { id: toastId });
-        }
+            : {}),
+    };
+    const breadcrumbSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+            { '@type': 'ListItem', position: 2, name: 'Products', item: `${SITE_URL}/products` },
+            ...(product.category
+                ? [{ '@type': 'ListItem', position: 3, name: product.category, item: `${SITE_URL}/products?category=${encodeURIComponent(product.category)}` }]
+                : []),
+            { '@type': 'ListItem', position: product.category ? 4 : 3, name: product.model, item: url },
+        ],
     };
 
-    // ==========================================
-    // RENDER STATES
-    // ==========================================
-    if (isDashboardLoading || isPageLoading) {
-        return (
-            <div className="min-h-screen bg-[#F8FAFC] flex justify-center py-20">
-                <div className="w-10 h-10 border-4 border-[#1B5E3B]/20 border-t-[#1B5E3B] rounded-full animate-spin"></div>
-            </div>
-        );
-    }
-
-    if (!baseProduct) {
-        return (
-            <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center py-20">
-                <h1 className="text-3xl font-extrabold text-[#0B2136] mb-2">Device Not Found</h1>
-                <button onClick={() => router.push('/products')} className="px-6 py-3 bg-[#0B2136] text-white font-bold rounded-xl mt-4 hover:bg-[#1B5E3B] transition-colors">
-                    Back to Inventory
-                </button>
-            </div>
-        );
-    }
-
-    const galleryImages = baseProduct.images || [baseProduct.image, baseProduct.secondaryImage].filter(Boolean);
-    const hasDiscount = representativeUnit?.mrp > representativeUnit?.price;
-
     return (
-        <div className="min-h-screen bg-[#F8FAFC] pb-24">
-            <div className="container mx-auto px-4 max-w-[1200px] py-8 lg:py-12">
-                <div className="flex flex-col lg:flex-row gap-10 xl:gap-16">
-                    
-                    <div className="lg:w-[45%] relative">
-                        <ImageGallery 
-                            mainImage={mainImage} 
-                            setMainImage={setMainImage} 
-                            galleryImages={galleryImages} 
-                            altText={baseProduct.model} 
-                        />
-                    </div>
-
-                    <div className="lg:w-[55%] flex flex-col">
-                        <div className="mb-6">
-                            <span className="inline-block text-[#1B5E3B] text-xs font-black uppercase tracking-widest mb-2">
-                                {baseProduct.brand} • {baseProduct.category}
-                            </span>
-                            <h1 className="text-2xl lg:text-3xl font-extrabold text-[#0B2136] leading-tight mb-4">
-                                {baseProduct.model}
-                            </h1>
-                        </div>
-
-                        <Configurator 
-                            availableGrades={availableGrades}
-                            specOptions={specOptions}
-                            selectedGrade={selectedGrade}
-                            setSelectedGrade={setSelectedGrade}
-                            selectedSpecs={selectedSpecs}
-                            setSelectedSpecs={setSelectedSpecs}
-                        />
-
-                        {/* ==========================================
-                            QUICK ACTION / BULK ORDER BLOCK
-                            ========================================== */}
-                        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm mb-6">
-                            {isAuthenticated ? (
-                                <div>
-                                    <div className="flex justify-between items-end mb-6">
-                                        <div>
-                                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">B2B Base Price</p>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-3xl font-black text-[#0B2136] tracking-tight">
-                                                    {formatCurrency(representativeUnit?.price || 0)}
-                                                </span>
-                                                {hasDiscount && (
-                                                    <span className="text-sm font-bold text-gray-400 line-through">
-                                                        {formatCurrency(representativeUnit.mrp)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className={`text-xs font-bold px-3 py-1 rounded-md ${availableMatchingUnits.length > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                                                {availableMatchingUnits.length} Ready to Auto-Allocate
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col sm:flex-row gap-4">
-                                        {/* Quantity Selector */}
-                                        <div className="flex items-center border border-gray-300 rounded-xl h-14 w-full sm:w-36 overflow-hidden">
-                                            <button 
-                                                onClick={() => setQuickQty(Math.max(1, quickQty - 1))} 
-                                                className="px-4 h-full text-gray-600 hover:bg-gray-50 font-bold transition-colors"
-                                            >−</button>
-                                            <input 
-                                                type="number" 
-                                                value={quickQty} 
-                                                onChange={(e) => setQuickQty(Math.min(availableMatchingUnits.length, Math.max(1, parseInt(e.target.value) || 1)))}
-                                                className="w-full h-full text-center font-bold text-[#0B2136] focus:outline-none bg-transparent"
-                                            />
-                                            <button 
-                                                onClick={() => setQuickQty(Math.min(availableMatchingUnits.length, quickQty + 1))} 
-                                                className="px-4 h-full text-gray-600 hover:bg-gray-50 font-bold transition-colors"
-                                            >+</button>
-                                        </div>
-
-                                        <button 
-                                            onClick={() => handleQuickAdd(false)}
-                                            disabled={availableMatchingUnits.length === 0}
-                                            className="flex-1 h-14 rounded-xl p-3 text-sm font-bold bg-white border-2 border-[#0B2136] text-[#0B2136] hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Add to Cart
-                                        </button>
-                                        
-                                        <button 
-                                            onClick={() => handleQuickAdd(true)}
-                                            disabled={availableMatchingUnits.length === 0}
-                                            className="flex-1 h-14 rounded-xl p-3 text-sm font-bold bg-[#0B2136] text-white hover:bg-[#1B5E3B] transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Buy Now
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-center py-4">
-                                    <p className="text-gray-500 text-sm mb-4">Please log in to view B2B pricing and quick-add inventory.</p>
-                                    <button 
-                                        onClick={() => router.push('/login')}
-                                        className="w-full py-4 rounded-xl text-sm font-bold bg-[#0B2136] text-white hover:bg-[#1B5E3B] transition-colors shadow-md"
-                                    >
-                                        Login to View & Buy
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        
-                    </div>
-                </div>
-                
-                {/* Visual Separator for Manual Selection */}
-                <div className="flex items-center gap-4 my-8">
-                    <hr className="flex-1 border-gray-200" />
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Or Pick Specific Units Below</span>
-                    <hr className="flex-1 border-gray-200" />
-                </div>
-
-                <SerializedTable matchingUnits={matchingUnits} />
-
-                <DetailedSpecs specs={representativeUnit?.specs} />
-            </div>
-        </div>
+        <>
+            <JsonLd data={[productSchema, breadcrumbSchema, faqSchema(product.category)]} />
+            <ProductDetailClient product={product} initialUnits={units} related={related} />
+        </>
     );
 }

@@ -109,7 +109,7 @@ export const BusinessValueSection = () => {
                     
                     <div className="text-center mb-16">
                         <div className="inline-flex items-center justify-center w-16 h-16 bg-[#F0FAF5] rounded-full mb-4">
-                            <img src="/RecyclingSymbolGreen.png" alt="Recycling" className="w-8 h-8 object-contain" />
+                            <img src="/images/e-waste-recycling-symbol.png" alt="E-waste recycling symbol" className="w-8 h-8 object-contain" />
                         </div>
                         <h2 className="text-3xl md:text-5xl font-extrabold text-[#0B2136]">
                             Powering a Sustainable Future
@@ -137,7 +137,7 @@ export const BusinessValueSection = () => {
                                     </div>
                                 </div>
 
-                                {/* Refurbished Laptop */}
+                                {/* Pre-Owned Laptop */}
                                 <div className="relative">
                                     <div className="absolute -top-8 left-0 bg-[#1B5E3B] text-white text-[11px] uppercase font-bold tracking-wider px-3 py-1 rounded-md shadow-sm">
                                         The GoRevive Choice

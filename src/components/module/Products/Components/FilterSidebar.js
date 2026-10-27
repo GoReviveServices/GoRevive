@@ -1,70 +1,91 @@
 "use client";
 
-export const FilterSidebar = ({ 
-    filters, 
-    uniqueCategories, 
-    uniqueBrands, 
-    handleFilterChange, 
-    clearAllFilters, 
+import { memo, useState } from 'react';
+
+/**
+ * sections: [{ key, title, options: [{ value, label, count, checked, color?, sub? }] }]
+ * Desktop: sticky card. Mobile: full-screen sheet opened from the bottom bar.
+ */
+export const FilterSidebar = memo(function FilterSidebar({
+    sections,
+    onToggle,
+    clearAllFilters,
     activeFilterCount,
-    isMobileFiltersOpen 
-}) => {
+    isMobileFiltersOpen,
+    onClose,
+    resultCount,
+}) {
+    const [collapsed, setCollapsed] = useState({});
+
     return (
-        <aside className={`lg:w-[280px] flex-shrink-0 ${isMobileFiltersOpen ? 'block mb-6' : 'hidden lg:block'}`}>
-            <div className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 lg:sticky lg:top-24">
-                
-                <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                    <h2 className="text-lg font-extrabold text-[#0B2136]">Filters</h2>
+        <aside
+            id="product-filters"
+            aria-label="Product filters"
+            className={`${isMobileFiltersOpen ? 'fixed inset-0 z-[60] flex' : 'hidden'} lg:flex lg:sticky lg:inset-auto lg:top-4 lg:z-auto lg:w-[264px] lg:max-h-[calc(100vh-32px)] lg:rounded-[14px] lg:border lg:border-[#E3EBE6] lg:shadow-[0_1px_3px_rgba(10,31,20,.05)] flex-col flex-shrink-0 overflow-auto bg-white`}
+        >
+            <div className="sticky top-0 z-[1] bg-white flex justify-between items-center px-4 py-3.5 border-b border-[#EEF2EF]">
+                <h2 className="text-base font-extrabold text-[#0A1A0E]">Filters</h2>
+                <div className="flex items-center gap-3.5">
                     {activeFilterCount > 0 && (
-                        <button onClick={clearAllFilters} className="text-[13px] text-red-500 hover:text-red-700 font-bold transition-colors">
-                            Clear All
-                        </button>
+                        <button type="button" onClick={clearAllFilters} className="text-[12.5px] font-bold text-[#B1401F] hover:text-[#8A2F16]">Clear all</button>
                     )}
+                    <button type="button" onClick={onClose} aria-label="Close filters" className="lg:hidden p-1 text-[#0A1A0E]">
+                        <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                    </button>
                 </div>
+            </div>
 
-                {/* Category Checkboxes */}
-                <div className="mb-8">
-                    <h3 className="font-bold text-gray-900 mb-4 text-[13px] uppercase tracking-widest">Category</h3>
-                    <div className="space-y-3">
-                        {uniqueCategories?.map(category => (
-                            <label key={category} className="flex items-center group cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={filters.category.includes(category)}
-                                    onChange={() => handleFilterChange('category', category)}
-                                    className="w-4.5 h-4.5 rounded border-gray-300 text-[#1B5E3B] focus:ring-[#1B5E3B] cursor-pointer transition-all"
-                                />
-                                <span className="ml-3 text-[14px] font-medium text-gray-600 group-hover:text-[#0B2136] transition-colors">
-                                    {category}
+            <div className="flex-1">
+                {sections.map(section => {
+                    const open = !collapsed[section.key];
+                    const selected = section.options.filter(o => o.checked).length;
+                    return (
+                        <fieldset key={section.key} className="border-b border-[#EEF2EF]">
+                            <legend className="sr-only">{section.title}</legend>
+                            <button
+                                type="button"
+                                aria-expanded={open}
+                                onClick={() => setCollapsed(c => ({ ...c, [section.key]: open }))}
+                                className="w-full flex justify-between items-center px-4 py-[13px] text-[#0A1A0E]"
+                            >
+                                <span className="text-xs font-extrabold tracking-[.08em] uppercase">{section.title}</span>
+                                <span className="flex items-center gap-2">
+                                    {selected > 0 && <span className="text-[11px] font-bold text-[#1B5E3B]">{selected} selected</span>}
+                                    <svg aria-hidden="true" className={`w-4 h-4 text-[#4A6355] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                                 </span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
+                            </button>
+                            {open && (
+                                <div className="flex flex-col gap-0.5 px-2.5 pb-3">
+                                    {section.options.map(o => (
+                                        <label key={o.value} className="flex items-center gap-2.5 px-1.5 py-[7px] rounded-lg cursor-pointer hover:bg-[#F4F8F5]">
+                                            <input
+                                                type="checkbox"
+                                                checked={o.checked}
+                                                onChange={() => onToggle(section.key, o.value)}
+                                                className="w-[17px] h-[17px] flex-shrink-0 rounded accent-[#1B5E3B] cursor-pointer"
+                                            />
+                                            <span className="flex-1 min-w-0 flex flex-col leading-tight">
+                                                <span className={`text-sm ${o.checked ? 'font-bold' : 'font-medium'}`} style={{ color: o.color || '#0A1A0E' }}>{o.label}</span>
+                                                {o.sub && <span className="text-[11.5px] text-[#4A6355]">{o.sub}</span>}
+                                            </span>
+                                            <span className="text-xs text-[#7A8F82] tabular-nums">
+                                                <span aria-hidden="true">{o.count}</span>
+                                                <span className="sr-only">, {o.count} {o.count === 1 ? 'product' : 'products'}</span>
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </fieldset>
+                    );
+                })}
+            </div>
 
-                {/* Brand Pills */}
-                <div>
-                    <h3 className="font-bold text-gray-900 mb-4 text-[13px] uppercase tracking-widest">Brands</h3>
-                    <div className="flex flex-wrap gap-2">
-                        {uniqueBrands.map(brand => {
-                            const isActive = filters.brand.includes(brand);
-                            return (
-                                <button
-                                    key={brand}
-                                    onClick={() => handleFilterChange('brand', brand)}
-                                    className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all duration-200 border ${
-                                        isActive 
-                                        ? 'bg-[#0B2136] text-white border-[#0B2136] shadow-md' 
-                                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
-                                    }`}
-                                >
-                                    {brand}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+            <div className="lg:hidden sticky bottom-0 bg-white border-t border-[#E3EBE6] px-4 py-3">
+                <button type="button" onClick={onClose} className="w-full h-12 rounded-xl bg-[#1B5E3B] text-white text-[15px] font-bold">
+                    Show {resultCount} results
+                </button>
             </div>
         </aside>
     );
-};
+});

@@ -1,4 +1,6 @@
 import React from 'react';
+import SmartImage from '@/components/utils/UI/SmartImage';
+import { warrantyPrice, EXT_WARRANTY_MONTHS } from '@/lib/warranty';
 
 function OwnerSummary({ 
     cartItems, 
@@ -6,9 +8,9 @@ function OwnerSummary({
     handleProceedToPayment, 
     isInitiatingPayment, 
     unavailableItems = [], 
-    removeFromCart 
+    removeFromCart,
+    warrantyIds = []
 }) {
-    console.log('OwnerSummary cartItems:', cartItems); // Debugging line
 
     // Check if there are any out-of-stock items currently in the cart
     const hasUnavailableItems = cartItems.some(item => unavailableItems.includes(item.product.id));
@@ -54,8 +56,8 @@ function OwnerSummary({
                                     <td className="py-4 flex items-center gap-4">
                                         {/* Optional: Add Product Image */}
                                         {item.product.image && (
-                                            <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 flex-shrink-0 flex items-center justify-center p-1">
-                                                <img src={item.product.image} alt={item.product.name} className="max-w-full max-h-full object-contain" />
+                                            <div className="relative w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 flex-shrink-0">
+                                                <SmartImage src={item.product.image} alt={item.product.name} fill sizes="48px" className="object-contain p-1" />
                                             </div>
                                         )}
                                         <div>
@@ -65,6 +67,9 @@ function OwnerSummary({
                                             <p className="font-mono text-xs text-gray-500 mt-0.5">
                                                 IMEI/ID: {item.product.id} • Grade {item.product.condition} • Qty: {item.quantity}
                                             </p>
+                                            {warrantyIds.includes(String(item.product.id)) && (
+                                                <p className="text-xs font-semibold text-emerald-700 mt-1">+ {EXT_WARRANTY_MONTHS} months extended warranty ({formatCurrency(warrantyPrice(item.product.price) * item.quantity)})</p>
+                                            )}
                                             
                                             {/* Remove Button for Out of Stock Items */}
                                             {isUnavailable && (

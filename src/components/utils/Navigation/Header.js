@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Icon } from '../UI/Icons/Icon'; 
 import { AuthNav } from './AuthNav';
 import { CartNav } from './CartNav';
 import { NavLinks } from './NavLinks';
 import { SearchBar } from '../UI/SearchBar';
+import SmartImage from '../UI/SmartImage';
+import { imageUrl } from '@/lib/site';
 
 const CONTACT_LINKS = [
     { href: "tel:01142758155", icon: "phone", text: "011 4275 8155" },
@@ -23,17 +24,20 @@ export const Header = () => {
                 <div className="flex items-center justify-between h-[84px]">
                     
                     <div className="flex-shrink-0">
-                        <Link href="/" className="flex items-center gap-2 group">
-                            <img
-                                src="https://gorevive.jbbs.in/images/brand_logo.png"
-                                alt="GoRevive Logo"
-                                className="h-20 transition-transform duration-300 group-hover:scale-[1.03]"
+                        <Link href="/" className="flex items-center gap-2 group" aria-label="GoRevive home">
+                            <SmartImage
+                                src={imageUrl('images/brand_logo.png')}
+                                alt="GoRevive – certified pre-owned IT hardware"
+                                width={240}
+                                height={80}
+                                priority
+                                className="h-16 sm:h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03]"
                             />
                         </Link>
                     </div>
 
                     <div className="hidden lg:flex items-center gap-x-6 flex-1 justify-end">
-                        <nav className="flex items-center space-x-1 mr-2">
+                        <nav aria-label="Main" className="flex items-center space-x-1 mr-2">
                             <NavLinks />
                         </nav>
 
@@ -67,9 +71,9 @@ export const Header = () => {
                         <SearchBar onSearch={() => setIsMenuOpen(false)} />
                     </div>
 
-                    <div className="flex flex-col space-y-1">
+                    <nav aria-label="Mobile" className="flex flex-col space-y-1">
                         <NavLinks onClick={() => setIsMenuOpen(false)} />
-                    </div>
+                    </nav>
 
                     <div className="pt-6 mt-4 border-t border-gray-100 flex flex-col gap-5">
                         <div className="flex flex-col space-y-3">

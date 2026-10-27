@@ -2,7 +2,7 @@ import SectionLabel from "../Components/SectionLabel";
 
 // --- Static Data ---
 const PRIMARY_LICENSE = {
-    imgSrc: "Logo_of_the_Central_Pollution_Control_Board.svg",
+    imgSrc: "images/cpcb-authorised-e-waste-recycler-logo.svg",
     title: "CPCB Certified & Authorized",
     subtitle: "Central Pollution Control Board of India",
     desc: "Our primary government authorization for the safe handling, dismantling, and processing of electronic waste across India.",
@@ -10,12 +10,12 @@ const PRIMARY_LICENSE = {
 };
 
 const STANDARD_CERTS = [
-    { imgSrc: "iso_9001_2015.png", title: "ISO 9001:2015", subtitle: "Quality Management Systems", bullets: ["Audited operational excellence", "Consistent product quality", "Strict regulatory compliance"] },
-    { imgSrc: "nist-800-88-compliant.jpg", title: "NIST 800-88", subtitle: "Global Data Erasure Standard", bullets: ["Guaranteed data destruction", "Protection from corporate leaks", "Audit-ready certificates provided"] },
-    { imgSrc: "dpcc.webp", title: "DPCC Authorized", subtitle: "Pollution Control Committee", bullets: ["Certified hazardous waste handling", "Eco-friendly disposal policies", "CTO & CTE regulatory approved"] },
-    { imgSrc: "msme-logo.png", title: "MSME Registered", subtitle: "Government of India", bullets: ["Udyam registered enterprise", "Trusted SME corporate partner", "Verified business operations"] },
-    { imgSrc: "gst.webp", title: "GST Compliant", subtitle: "Form GST REG-06", bullets: ["Transparent B2B billing", "Input Tax Credit (ITC) ready", "Fully compliant taxation"] },
-    { imgSrc: "MCD.png", title: "Factory License", subtitle: "Municipal Corporation Delhi", bullets: ["Authorized industrial operations", "Safe working environment", "Regulated IT refurbishment"] }
+    { imgSrc: "images/iso-9001-2015-certified-it-refurbisher.png", title: "ISO 9001:2015", subtitle: "Quality Management Systems", bullets: ["Audited operational excellence", "Consistent product quality", "Strict regulatory compliance"] },
+    { imgSrc: "images/nist-800-88-certified-data-erasure.jpg", title: "NIST 800-88", subtitle: "Global Data Erasure Standard", bullets: ["Guaranteed data destruction", "Protection from corporate leaks", "Audit-ready certificates provided"] },
+    { imgSrc: "images/dpcc-authorised-e-waste-handler.webp", title: "DPCC Authorized", subtitle: "Pollution Control Committee", bullets: ["Certified hazardous waste handling", "Eco-friendly disposal policies", "CTO & CTE regulatory approved"] },
+    { imgSrc: "images/msme-udyam-registered-enterprise.png", title: "MSME Registered", subtitle: "Government of India", bullets: ["Udyam registered enterprise", "Trusted SME corporate partner", "Verified business operations"] },
+    { imgSrc: "images/gst-registered-business.webp", title: "GST Compliant", subtitle: "Form GST REG-06", bullets: ["Transparent B2B billing", "Input Tax Credit (ITC) ready", "Fully compliant taxation"] },
+    { imgSrc: "images/mcd-factory-licence-delhi.png", title: "Factory License", subtitle: "Municipal Corporation Delhi", bullets: ["Authorized industrial operations", "Safe working environment", "Regulated IT refurbishment"] }
 ];
 
 // --- Sub-Components ---
@@ -29,12 +29,12 @@ const CertificateCard = ({ cert }) => (
     <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white hover:border-[#1B5E3B]/15">
         <div className="flex items-center gap-4 mb-5">
             <div className="w-[60px] h-[60px] shrink-0 bg-white rounded-lg border border-gray-100 shadow-sm flex items-center justify-center p-2 overflow-hidden">
-                <img src={`/${cert.imgSrc}`} alt={`${cert.title} badge`} className="w-full h-full object-contain" />
+                <img src={`/${cert.imgSrc}`} alt={`${cert.title} – ${cert.subtitle}`} className="w-full h-full object-contain" />
             </div>
             <div>
-                <h4 className="font-display text-[18px] font-bold text-[#0B2136] leading-tight mb-1">
+                <h3 className="font-display text-[18px] font-bold text-[#0B2136] leading-tight mb-1">
                     {cert.title}
-                </h4>
+                </h3>
                 <p className="text-[13px] font-medium text-[#1E40AF]">
                     {cert.subtitle}
                 </p>
@@ -128,7 +128,7 @@ export const Features = () => {
                         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-start lg:items-center">
 
                             <div className="w-[80px] h-[80px] lg:w-[100px] lg:h-[100px] shrink-0 bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-center shadow-sm overflow-hidden">
-                                <img src={`/${PRIMARY_LICENSE.imgSrc}`} alt={`${PRIMARY_LICENSE.title} badge`} className="w-full h-full object-contain" />
+                                <img src={`/${PRIMARY_LICENSE.imgSrc}`} alt={`${PRIMARY_LICENSE.title} – ${PRIMARY_LICENSE.subtitle || 'licence'}`} className="w-full h-full object-contain" />
                             </div>
 
                             <div className="flex-1">

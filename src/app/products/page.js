@@ -1,146 +1,88 @@
-"use client";
-
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { FilterSidebar } from '@/components/module/Products/Components/FilterSidebar';
-import { ProductToolbar } from '@/components/module/Products/Components/ProductToolbar';
-import { ProductGrid } from '@/components/module/Products/Components/ProductGrid';
-import { useDashboard } from '@/components/utils/Context/DashboardContext';
-
-const ProductsContent = () => {
-    const { productData: products = [], isLoading: loading, uniqueCategories } = useDashboard();
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const pathname = usePathname();
+import { Suspense } from 'react';
+import { getProductBundles } from '@/lib/server/inventory';
+import { getBanners } from '@/lib/server/banners';
+import { getPriceTier } from '@/lib/server/session';
+import { SITE_URL, pageMetadata, pluralize } from '@/lib/site';
+import JsonLd from '@/components/utils/SEO/JsonLd';
+import { ProductSkeleton } from '@/components/module/Products/Components/ProductSkeleton';
+import ProductsClient from './ProductsClient';
 
 
-    const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-    const [sort, setSort] = useState('relevance');
+const one = (v) => (Array.isArray(v) ? (v.length === 1 ? v[0] : null) : v || null);
 
-    const [filters, setFilters] = useState({
-        category: searchParams.getAll('category'),
-        brand: searchParams.getAll('brand'),
-        search: searchParams.get('search') || '',
-    });
+// Category or brand landing views (?category=Laptop) get their own title and
+// canonical URL; any other filter combination points back to /products.
+export async function generateMetadata({ searchParams }) {
+    const sp = await searchParams;
+    const category = one(sp.category);
+    const brand = one(sp.brand);
+    const onlyCategory = category && !sp.brand && !sp.price && !sp.search && !sp.grade && !sp.ram;
+    const onlyBrand = brand && !sp.category && !sp.price && !sp.search && !sp.grade && !sp.ram;
 
-    useEffect(() => {
-        setFilters({
-            category: searchParams.getAll('category'),
-            brand: searchParams.getAll('brand'),
-            search: searchParams.get('search') || '',
+    if (onlyCategory) {
+        return pageMetadata({
+            title: `Pre-Owned ${pluralize(category)} for Business – Bulk B2B Prices`,
+            description: `Buy certified pre-owned ${pluralize(category).toLowerCase()} in bulk from GoRevive. Every unit is quality-checked, graded A–D and backed by warranty. GST invoice for businesses.`,
+            path: `/products?category=${encodeURIComponent(category)}`,
         });
-    }, [searchParams]);
-
-    // Centralized URL Updater Logic
-    const updateUrlParams = (key, value, isArray = true) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (isArray) {
-            params.delete(key);
-            value.forEach(val => params.append(key, val));
-        } else {
-            if (value) params.set(key, value);
-            else params.delete(key);
-        }
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+    if (onlyBrand) {
+        return pageMetadata({
+            title: `Pre-Owned ${brand} Laptops & Devices – Bulk B2B Prices`,
+            description: `Shop certified pre-owned ${brand} devices in bulk from GoRevive. Graded, tested and warranty-backed with GST invoicing for businesses across India.`,
+            path: `/products?brand=${encodeURIComponent(brand)}`,
+        });
+    }
+    // Any other filter combination (price, search, several brands…) is the
+    // same content as /products, so it points there and stays out of the index.
+    const filtered = Boolean(sp.category || sp.brand || sp.price || sp.search || sp.sort || sp.grade || sp.ram);
+    return {
+        ...pageMetadata({
+            title: 'Buy Pre-Owned Laptops, Desktops & Monitors in Bulk',
+            description: 'Browse certified pre-owned laptops, MacBooks, desktops, monitors and phones at B2B prices. Filter by brand, grade and price. Warranty-backed with GST invoice.',
+            path: '/products',
+        }),
+        ...(filtered ? { robots: { index: false, follow: true } } : {}),
     };
+}
 
-    const handleFilterChange = (type, value) => {
-        const currentValues = filters[type];
-        const newValues = currentValues.includes(value)
-            ? currentValues.filter(item => item !== value)
-            : [...currentValues, value];
-        updateUrlParams(type, newValues);
+const GridFallback = () => (
+    <div className="grid grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-2.5 lg:gap-4">
+        {[...Array(8)].map((_, i) => <ProductSkeleton key={i} />)}
+    </div>
+);
+
+export default async function ProductsPage() {
+    // Retailers see Ret_Price, everyone else Cust_Price.
+    const tier = await getPriceTier();
+    const [products, banners] = await Promise.all([
+        getProductBundles(tier).catch(() => []),
+        getBanners().catch(() => []),
+    ]);
+
+    const itemList = {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Pre-Owned IT products',
+        numberOfItems: products.length,
+        itemListElement: products.slice(0, 50).map((p, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            url: `${SITE_URL}/products/${p.slug}`,
+            name: p.model,
+        })),
     };
-
-    const handleSearch = (term) => updateUrlParams('search', term, false);
-
-    const clearAllFilters = () => {
-        router.replace(pathname, { scroll: false }); 
-    };
-
-    const filteredAndSortedProducts = useMemo(() => {
-        let result = [...products];
-        
-
-        if (filters.category.length > 0) result = result.filter(p => filters.category.includes(p.category));
-        if (filters.brand.length > 0) result = result.filter(p => filters.brand.includes(p.brand));
-        
-        if (filters.search) {
-            const term = filters.search.toLowerCase();
-            result = result.filter(p =>
-                p.model.toLowerCase().includes(term) ||
-                p.brand.toLowerCase().includes(term) ||
-                (p.category && p.category.toLowerCase().includes(term))
-            );
-        }
-
-        // FIX: The bundler uses 'startingPrice', not 'price'! 
-        if (sort === 'price-asc') result.sort((a, b) => a.startingPrice - b.startingPrice);
-        else if (sort === 'price-desc') result.sort((a, b) => b.startingPrice - a.startingPrice);
-
-        return result;
-    }, [products, filters, sort]);
-
-    const activeFilterCount = filters.category.length + filters.brand.length + (filters.search ? 1 : 0);
-    const uniqueBrands = useMemo(() => [...new Set(products.map(p => p.brand).filter(Boolean))], [products]);
 
     return (
-        <div className="bg-[#F8FAFC] min-h-screen">
-            {/* Header */}
-            {/* <div className="bg-white border-b border-gray-200 py-8 lg:py-12">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-[1400px]">
-                    <h1 className="text-3xl lg:text-4xl font-extrabold text-[#0B2136]">Enterprise Inventory</h1>
-                    <p className="text-gray-500 mt-2">Browse our certified, ready-to-deploy IT assets.</p>
-                </div>
-            </div> */}
-
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-[1400px] py-8">
-                
-                {/* Mobile Filter Toggle */}
-                <div className="lg:hidden flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
-                    <span className="font-bold text-[#0B2136]">Filters {activeFilterCount > 0 && <span className="bg-[#1B5E3B] text-white px-2 py-0.5 rounded-full text-xs ml-1">{activeFilterCount}</span>}</span>
-                    <button onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)} className="flex items-center gap-2 text-sm font-bold text-[#1B5E3B] bg-[#F0FAF5] px-4 py-2 rounded-xl transition-colors">
-                        {isMobileFiltersOpen ? 'Close' : 'Filter'}
-                    </button>
-                </div>
-
-                <div className="flex flex-col lg:flex-row gap-8">
-                    <FilterSidebar 
-                        filters={filters}
-                        uniqueCategories={uniqueCategories}
-                        uniqueBrands={uniqueBrands}
-                        handleFilterChange={handleFilterChange}
-                        clearAllFilters={clearAllFilters}
-                        activeFilterCount={activeFilterCount}
-                        isMobileFiltersOpen={isMobileFiltersOpen}
-                    />
-
-                    <main className="lg:flex-1 w-full">
-                        <ProductToolbar 
-                            filters={filters}
-                            sort={sort}
-                            setSort={setSort}
-                            handleSearch={handleSearch}
-                            removeFilter={handleFilterChange}
-                            resultCount={filteredAndSortedProducts.length}
-                        />
-
-                        <ProductGrid 
-                            products={filteredAndSortedProducts} 
-                            loading={loading} 
-                            clearAllFilters={clearAllFilters}
-                        />
-                    </main>
-                </div>
+        <div className="min-h-screen bg-[#FAFAF8] bg-[radial-gradient(1100px_520px_at_10%_-10%,#FFF6EC_0,transparent_60%),radial-gradient(900px_480px_at_95%_0,#F1F0FF_0,transparent_60%)]">
+            <JsonLd data={itemList} />
+            {/* Kept for SEO and screen readers; the page opens visually on categories + banners. */}
+            <h1 className="sr-only">Certified Pre-Owned IT Hardware</h1>
+            <div className="mx-auto max-w-[1440px] px-4 sm:px-5 pt-4 pb-24 lg:pb-14">
+                <Suspense fallback={<GridFallback />}>
+                    <ProductsClient initialProducts={products} initialBanners={banners} />
+                </Suspense>
             </div>
         </div>
-    );
-};
-
-export default function ProductsPage() {
-    return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-[#1B5E3B] border-t-transparent rounded-full animate-spin"></div></div>}>
-            <ProductsContent />
-        </Suspense>
     );
 }

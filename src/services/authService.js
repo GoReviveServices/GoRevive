@@ -6,6 +6,11 @@ export const authService = {
     return data;
   },
   
+  verifyOtp: async (otp) => {
+    const { data } = await api.post('/auth/verify-otp', { otp });
+    return data;
+  },
+
   register: async (userData) => {
     const { data } = await api.post('/auth/register', userData);
     return data;

@@ -63,12 +63,13 @@ export const ITADCapabilitiesSection = () => {
                 
                 {/* Header Section */}
                 <div className="max-w-4xl mx-auto text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#0B2136] leading-tight tracking-tight mb-6">
+                    {/* The homepage's single H1. */}
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#0B2136] leading-tight tracking-tight mb-6">
                         Secure, <em className="font-accent italic font-normal text-g600">Certified</em> & Sustainable <br className="hidden md:block"/>
                         <span>IT Asset Disposal</span>
-                    </h2>
+                    </h1>
                     <p className="text-[17px] text-[#4A6355] leading-relaxed">
-                        Turning unmanaged IT equipment into opportunity — with the industry's best asset value, uncompromising data security, full traceability, and environmentally certified recycling technology.
+                        Turning unmanaged IT equipment into opportunity — with the industry’s best asset value, uncompromising data security, full traceability, and environmentally certified recycling technology.
                     </p>
                 </div>
 
@@ -82,9 +83,9 @@ export const ITADCapabilitiesSection = () => {
                             <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-[#1B5E3B] mb-6">
                                 {item.icon}
                             </div>
-                            <h3 className="text-xl font-bold text-[#0B2136] mb-3">
+                            <h2 className="text-xl font-bold text-[#0B2136] mb-3">
                                 {item.title}
-                            </h3>
+                            </h2>
                             <p className="text-[15px] text-gray-600 leading-relaxed">
                                 {item.desc}
                             </p>
@@ -93,7 +94,7 @@ export const ITADCapabilitiesSection = () => {
                 </div>
                 
                 {/* Background Image / Gradient */}
-                <div className="absolute bg-[#ffffff20] left-0 -bottom-28 bg-[url('/bg2.webp')] z-[-1] bg-cover bg-bottom w-full h-full">
+                <div className="absolute bg-[#ffffff20] left-0 -bottom-28 bg-[url('/images/pre-owned-it-assets-background.webp')] z-[-1] bg-cover bg-bottom w-full h-full">
                     <div className="absolute bottom-0 w-full h-[300px] bg-gradient-to-t from-white to-transparent"></div>
                 </div>
 

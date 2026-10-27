@@ -7,9 +7,9 @@ export const ProcessSection = () => {
                 
                 {/* Header */}
                 <div className="text-center mb-12">
-                    <h3 className="text-3xl md:text-4xl font-extrabold text-[#0B2136]">
+                    <h2 className="text-3xl md:text-4xl font-extrabold text-[#0B2136]">
                         See Our Process in Action
-                    </h3>
+                    </h2>
                     <p className="text-gray-600 mt-3 text-lg max-w-lg mx-auto">
                         Go behind the scenes at our state-of-the-art facility to see how we bring devices back to life.
                     </p>

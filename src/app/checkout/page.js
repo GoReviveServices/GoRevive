@@ -10,9 +10,11 @@ import SidebarSummary from './components/SidebarSummary';
 import StepperHeader from './components/StepperHeader';
 import Address from './components/Address';
 import Verification from './components/Verification';
+import KycNotice from './components/KycNotice';
+import { getKycState, kycAllowsOrder } from '@/lib/kyc';
 import OwnerSummary from './components/OwnerSummary';
 import Payment from './components/Payment';
-import { load } from '@cashfreepayments/cashfree-js';
+import { computeOrderTotals } from '@/lib/pricing';
 
 const formatCurrency = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount).replace(/\s/g, '');
 
@@ -26,7 +28,7 @@ const STEPS = [
 export default function CheckoutPage() {
     const router = useRouter();
     const { user, isAuthenticated, loading: authLoading } = useAuth();
-    const { cartItems, cartSubtotal, loading: cartLoading, removeFromCart } = useCart();
+    const { cartItems, loading: cartLoading, removeFromCart, warrantyIds } = useCart();
 
     const [currentStep, setCurrentStep] = useState(1);
 
@@ -37,7 +39,7 @@ export default function CheckoutPage() {
 
     // Verification State
     const [isVerifying, setIsVerifying] = useState(false);
-    const [isVerified, setIsVerified] = useState(false);
+    const [kyc, setKyc] = useState(null); // { state, missing, remark }
     const [kycData, setKycData] = useState(null);
     const [kycFiles, setKycFiles] = useState({ aadhaar: null, pan: null, gst: null });
     const [isUploadingKyc, setIsUploadingKyc] = useState(false);
@@ -54,11 +56,16 @@ export default function CheckoutPage() {
     // INITIALIZATION & GUARDS
     // ==========================================
     useEffect(() => {
-        if (!cartLoading && cartItems.length === 0) {
+        if (authLoading) return;
+        if (!isAuthenticated) {
+            router.replace('/login?next=/checkout');
+            return;
+        }
+        if (!cartLoading && cartItems.length === 0 && !isInitiatingPayment) {
             toast.error("Your cart is empty. Redirecting to inventory.");
             router.push('/products');
         }
-    }, [isAuthenticated, authLoading, cartItems.length, cartLoading, router]);
+    }, [isAuthenticated, authLoading, cartItems.length, cartLoading, isInitiatingPayment, router]);
 
   useEffect(() => {
         const fetchWalletBalance = async () => {
@@ -68,11 +75,10 @@ export default function CheckoutPage() {
             }
 
             try {
-                const response = await api.get(`/user/ledger?userId=${user.crm_party_code}`);
-                console.log(response)
-                
+                const response = await api.get('/user/ledger');
+
                 if (response.data && response.data.success) {
-                    setWalletBalance(response.data.kycData.balance || 0);
+                    setWalletBalance(Number(response.data.balance) || 0);
                 } else {
                     setWalletBalance(0);
                 }
@@ -87,56 +93,74 @@ export default function CheckoutPage() {
         fetchWalletBalance();
     }, [user]);
 
-    // 2. Fetch Addresses (Restored!)
-    useEffect(() => {
-        if (isAuthenticated && user?.crm_party_code) {
-            const fetchAddresses = async () => {
-                try {
-                    const response = await api.get(`/user/addresses?userId=${user.crm_party_code}`);
-                    let fetchedAddresses = [];
+    // 2. Fetch Addresses. `selectNew` picks the address that was just added.
+    const loadAddresses = async (selectNew = false) => {
+        try {
+            const response = await api.get('/user/addresses');
+            let fetchedAddresses = [];
 
-                    if (response.data.success) {
-                        fetchedAddresses = response.data.addresses;
-                    }
+            if (response.data.success) {
+                fetchedAddresses = response.data.addresses;
+            }
 
-                    // Merge the default address from the user profile if it exists
-                    if (user.address1) {
-                        const defaultProfileAddress = {
-                            addressid: 'default-profile-address',
-                            address_type: 'PROFILE DEFAULT',
-                            contact_name: user.cust_name,
-                            contact_no: user.mobile,
-                            plot_no: user.address1,
-                            locality: user.address2 || '',
-                            city: user.city,
-                            state: user.state,
-                            pincode: user.pincode,
-                            landmark: ''
-                        };
-                        fetchedAddresses = [defaultProfileAddress, ...fetchedAddresses];
-                    }
+            // Merge the default address from the user profile if it exists
+            if (user.address1) {
+                const defaultProfileAddress = {
+                    addressid: 'default-profile-address',
+                    address_type: 'PROFILE DEFAULT',
+                    contact_name: user.cust_name,
+                    contact_no: user.mobile,
+                    plot_no: user.address1,
+                    locality: user.address2 || '',
+                    city: user.city,
+                    state: user.state,
+                    pincode: user.pincode,
+                    landmark: ''
+                };
+                fetchedAddresses = [defaultProfileAddress, ...fetchedAddresses];
+            }
 
-                    setAddresses(fetchedAddresses);
-                    
-                    if (fetchedAddresses.length > 0) {
-                        setSelectedAddressId(fetchedAddresses[0].addressid);
-                    }
-                } catch (error) {
-                    toast.error("Failed to load saved addresses.");
-                } finally {
-                    setIsLoadingAddresses(false);
-                }
-            };
-            fetchAddresses();
+            const before = new Set(addresses.map((a) => String(a.addressid)));
+            setAddresses(fetchedAddresses);
+
+            const added = selectNew ? fetchedAddresses.filter((a) => !before.has(String(a.addressid))).pop() : null;
+            if (added) setSelectedAddressId(added.addressid);
+            else if (fetchedAddresses.length > 0 && !selectNew) setSelectedAddressId(fetchedAddresses[0].addressid);
+        } catch (error) {
+            toast.error("Failed to load saved addresses.");
+        } finally {
+            setIsLoadingAddresses(false);
         }
+    };
+
+    useEffect(() => {
+        if (isAuthenticated && user?.crm_party_code) loadAddresses();
     }, [isAuthenticated, user]);
+
+    const handleAddAddress = async (values) => {
+        try {
+            const { data } = await api.post('/user/addresses', values);
+            if (!data?.success) {
+                toast.error(data?.message || "Could not save the address.");
+                return false;
+            }
+            toast.success("Address added.");
+            await loadAddresses(true);
+            return true;
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Could not save the address.");
+            return false;
+        }
+    };
 
     // ==========================================
     // CALCULATIONS
     // ==========================================
-    const totalRequestAmount = cartItems.length >= 10 ? cartSubtotal * 0.97 : cartSubtotal;
-    const applicableWalletAmount = Math.min(walletBalance, totalRequestAmount);
-    const finalPayable = totalRequestAmount - applicableWalletAmount;
+    // Display only. The server recalculates the same totals before charging.
+    const totals = computeOrderTotals(cartItems, walletBalance, warrantyIds);
+    const totalRequestAmount = totals.total;
+    const applicableWalletAmount = totals.walletAmount;
+    const finalPayable = totals.payable;
 
     // ==========================================
     // PIPELINE HANDLERS
@@ -150,19 +174,15 @@ export default function CheckoutPage() {
     const fetchKycStatus = async () => {
         setIsVerifying(true);
         try {
-            const response = await api.get(`/user/kyc?userId=${user.crm_party_code}`);
+            const response = await api.get('/user/kyc');
             if (response.data?.success) {
                 const data = response.data.kycData;
                 setKycData(data);
-                if (data.aadhar_img && data.pan_img && data.gst_img) {
-                    setIsVerified(true);
-                } else {
-                    setIsVerified(false);
-                }
+                setKyc(response.data.kyc || getKycState(data));
+                return response.data.kyc || getKycState(data);
             }
         } catch (error) {
             toast.error("Could not verify B2B status.");
-            setIsVerified(false);
         } finally {
             setIsVerifying(false);
         }
@@ -192,8 +212,6 @@ export default function CheckoutPage() {
 
         try {
             const formData = new FormData();
-            formData.append('dist_code', user.crm_party_code);
-
             if (kycFiles.aadhaar) formData.append('aadhaar_image', kycFiles.aadhaar);
             if (kycFiles.pan) formData.append('pan_image', kycFiles.pan);
             if (kycFiles.gst) formData.append('gst_image', kycFiles.gst);
@@ -203,9 +221,15 @@ export default function CheckoutPage() {
             });
 
             if (response.data.success) {
-                toast.success("Documents verified successfully!", { id: toastId });
-                setIsVerified(true);
-                setKycData({ ...kycData, aadhar_img: 'uploaded', pan_img: 'uploaded', gst_img: 'uploaded' });
+                toast.success("Documents uploaded. They will be reviewed by our team.", { id: toastId });
+                setKycFiles({ aadhaar: null, pan: null, gst: null });
+                // Re-read the status from the server instead of assuming it is approved.
+                const fresh = await fetchKycStatus();
+                if (!fresh || fresh.state === 'missing') {
+                    const uploadedData = { ...kycData, aadhar_img: 'uploaded', pan_img: 'uploaded', gst_img: 'uploaded', kyc_status: kycData?.kyc_status || 'PENDING' };
+                    setKycData(uploadedData);
+                    setKyc(getKycState(uploadedData));
+                }
             } else {
                 toast.error(response.data.message || "Upload failed.", { id: toastId });
             }
@@ -217,7 +241,7 @@ export default function CheckoutPage() {
     };
 
     const handleProceedToSummary = () => {
-        if (!isVerified) return toast.error("You must complete verification first.");
+        if (!kycAllowsOrder(kyc)) return toast.error("Please upload your business documents first.");
 
         const outOfStockIds = cartItems
             .filter(item => item.product.isStock !== "Available" || item.product.stock < item.quantity)
@@ -232,187 +256,84 @@ export default function CheckoutPage() {
         }
     };
 
-    // Helper: Generate Invoice after successful payment (Cashfree or Wallet 100%)
-    const generateInvoiceAfterSuccess = async (orderId, formattedDate, paymentMode, selectedAddress, toastId) => {
+    // Asks the server (which asks the bank) whether this order was actually paid.
+    const isPaidOnServer = async (orderId) => {
         try {
-            const invoicePayload = {
-                order_no: orderId,
-                invoice_no: "",
-                invoice_date: formattedDate.split(' ')[0],
-                tot_qty: cartItems.reduce((acc, item) => acc + item.quantity, 0),
-                tot_discount_amt: 0,
-                tot_taxable_amt: totalRequestAmount,
-                tot_cgst_amt: 0,
-                tot_sgst_amt: 0,
-                tot_igst_amt: 0,
-                tot_amount: totalRequestAmount,
-                payment_mode: paymentMode,
-                wallet_amount: applicableWalletAmount,
-                cashfree_amount: finalPayable, // Will be 0 if paid fully by Wallet
-                extra_charges: "",
-                extra_per: 0,
-                extra_amt: 0,
-                crm_party_code: user.crm_party_code,
-                payment_reference: orderId,
-                payment_status: "Success",
-                company_gstno: "",
-                customer_gstno: "",
-                party_name: user.cust_name,
-                party_mobile: user.mobile,
-                party_email: user.email,
-                shipping_address: selectedAddress?.address1 || selectedAddress?.plot_no || "",
-                shipping_city: selectedAddress?.city || "",
-                shipping_state: selectedAddress?.state || "",
-                shipping_zip: selectedAddress?.pincode || "",
-                ship_from_state: "Delhi",
-                ship_from_addrs: "",
-                invoice_details: cartItems.map(item => ({
-                    model_name: item.product.name,
-                    model_code: item.product.model_code || "",
-                    type: item.product.category || "Unknown",
-                    hsn_code: item.product.hsn_code || "",
-                    qty: item.quantity.toString(),
-                    imei1: item.product.id,
-                    imei2: "",
-                    disccount: "0.00",
-                    item_category: item.product.condition || item.product.category || "D",
-                    purchase_price: item.product.price,
-                    taxable_value: item.product.price * item.quantity,
-                    cgst_per: "0.00",
-                    cgst_amount: "0.00",
-                    sgst_per: "0.00",
-                    sgst_amount: "0.00",
-                    igst_per: "0.00",
-                    igst_amount: "0.00",
-                    price: item.product.price.toString(),
-                    item_total: (item.product.price * item.quantity).toString()
-                }))
-            };
-
-            await api.post('/order/invoice', invoicePayload);
-            toast.success("Order Complete!", { id: toastId });
-            router.push(`/checkout/status?order_id=${orderId}&gateway=${paymentMode}`);
-
-        } catch (invoiceError) {
-            toast.error("Payment successful, but failed to generate invoice.", { id: toastId });
-            router.push(`/checkout/status?order_id=${orderId}&gateway=${paymentMode}`);
+            const { data } = await api.post('/payment/verify', { orderId });
+            return Boolean(data?.success && data?.isPaid);
+        } catch {
+            return false;
         }
     };
 
+    // The server prices the cart, creates the PO and opens the payment session.
+    // Invoices are only created by the server after it verifies the payment.
     const handleInitiatePayment = async (gateway, option) => {
         setIsInitiatingPayment(true);
-        const toastId = toast.loading(`Creating Purchase Order...`);
+        const toastId = toast.loading('Creating purchase order...');
 
         try {
-            const orderId = `GR_${user.crm_party_code}_${Date.now()}`;
-            const selectedAddress = addresses.find(a => a.addressid === selectedAddressId);
+            const { data } = await api.post('/checkout', { addressId: selectedAddressId, gateway, option, warrantyIds });
 
-            const pad = (n) => n.toString().padStart(2, '0');
-            const d = new Date();
-            const formattedDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-            // STEP 1: PO PAYLOAD 
-            const poPayload = {
-                order_details: cartItems.map(item => ({
-                    sku_id: item.product.model_code || "",
-                    imei: item.product.id || "",
-                    qnty: item.quantity.toString(),
-                    item_category: item.product.condition || item.product.category || "Unknown",
-                    item_name: item.product.name || "",
-                    item_price: item.product.price
-                })),
-                order_no: orderId,
-                order_date: formattedDate,
-                tot_qnty: cartItems.reduce((acc, item) => acc + item.quantity, 0),
-                tot_amount: totalRequestAmount,
-                payment_mode: gateway,
-                cod_charges: "",
-                payment_remark: "B2B Website Order",
-                crm_party_code: user?.crm_party_code ,
-                party_name: user?.cust_name ,
-                party_mobile: user?.mobile ,
-                party_email: user?.email ,
-                shipping_address: selectedAddress?.address1 || selectedAddress?.plot_no ,
-                shipping_city: selectedAddress?.city ,
-                shipping_state: selectedAddress?.state ,
-                shipping_zip: selectedAddress?.pincode 
-            };
-
-            const poResponse = await api.post('/order/po', poPayload);
-
-            if (!poResponse.data.success) {
-                toast.error("Failed to sync Purchase Order.", { id: toastId });
+            if (!data.success) {
+                toast.error(data.message || 'Failed to start payment.', { id: toastId });
                 setIsInitiatingPayment(false);
                 return;
             }
 
-            // AUTO-SKIP GATEWAY IF WALLET COVERS 100%
-            if (finalPayable === 0) {
-                toast.loading("Wallet covers full amount. Generating Invoice...", { id: toastId });
-                await generateInvoiceAfterSuccess(orderId, formattedDate, "Wallet", selectedAddress, toastId);
+            const statusUrl = `/checkout/status?order_id=${encodeURIComponent(data.orderId)}`;
+
+            if (data.completed) {
+                toast.success('Paid from wallet. Order complete!', { id: toastId });
+                router.push(`${statusUrl}&method=wallet`);
                 return;
             }
 
-            // STEP 2: INITIATE PAYMENT GATEWAY
-            toast.loading(`Connecting to ${gateway}...`, { id: toastId });
-
-            const paymentPayload = {
-                orderId,
-                amount: finalPayable, // CRITICAL FIX: Only charge what is left after wallet!
-                customerId: user.crm_party_code,
-                customerPhone: user.mobile,
-                customerEmail: user.email,
-                gateway
-            };
-
-            if (gateway === 'HDFC' && option) {
-                paymentPayload.payment_filter = {
-                    allowDefaultOptions: false,
-                    options: [{ paymentMethodType: option, enable: true }]
-                };
-            } else if (gateway === 'CASHFREE' && option) {
-                paymentPayload.payment_methods_filters = option;
+            if (data.gateway === 'HDFC') {
+                toast.success('Redirecting to secure gateway...', { id: toastId });
+                window.location.href = data.paymentUrl;
+                return;
             }
 
-            const response = await api.post('/payment/create', paymentPayload);
-
-            if (!response.data.success) {
-                toast.error(response.data.message || "Failed to initialize payment.", { id: toastId });
+            // Cashfree checkout script is loaded only when the buyer pays.
+            if (!data.sessionId) {
+                toast.error('Payment session could not be created. Please try again.', { id: toastId });
                 setIsInitiatingPayment(false);
                 return;
             }
 
-            // Save the payment split so the status page knows how to build the invoice for HDFC
-            sessionStorage.setItem('pending_order_split', JSON.stringify({
-                wallet_amount: applicableWalletAmount,
-                gateway_amount: finalPayable,
-                total_amount: totalRequestAmount
-            }));
+            const { load } = await import('@cashfreepayments/cashfree-js');
+            // Use the mode the server created the session in; a mismatch makes Cashfree
+            // reject the session as invalid.
+            const cashfree = await load({ mode: data.cashfreeMode === 'production' ? 'production' : 'sandbox' });
+            if (!cashfree) throw new Error('The payment window could not be loaded. Please refresh and try again.');
+            toast.dismiss(toastId);
 
-            // STEP 3: REDIRECT (HDFC) OR MODAL (CASHFREE)
-            if (gateway === 'HDFC') {
-                toast.success("Redirecting to Secure Gateway...", { id: toastId });
-                window.location.href = response.data.paymentUrl;
+            const result = await cashfree.checkout({ paymentSessionId: data.sessionId, redirectTarget: '_modal' });
 
-            } else if (gateway === 'CASHFREE') {
-                const cashfree = await load({ mode: "sandbox" });
-                toast.dismiss(toastId);
-
-                const result = await cashfree.checkout({
-                    paymentSessionId: response.data.sessionId,
-                    redirectTarget: "_modal"
-                });
-
-                if (result.error) {
-                    toast.error("Payment failed: " + result.error.message);
-                    setIsInitiatingPayment(false);
-                } else if (result.paymentDetails) {
-                    toast.loading("Payment verified! Generating Invoice...", { id: toastId });
-                    await generateInvoiceAfterSuccess(orderId, formattedDate, "Cashfree", selectedAddress, toastId);
+            if (result?.error) {
+                // The buyer may have approved the payment (a UPI request, say) and closed
+                // the pop-up before it reported success. Ask the server before calling
+                // it a failure; if it was paid, the status page finishes the order.
+                if (await isPaidOnServer(data.orderId)) {
+                    router.push(statusUrl);
+                    return;
                 }
+                toast.error('Payment failed: ' + (result.error.message || 'the payment window was closed.'));
+                setIsInitiatingPayment(false);
+            } else {
+                // The status page asks the server to verify the payment and create the invoice.
+                router.push(statusUrl);
             }
         } catch (error) {
-            toast.error("Network error while connecting to bank.", { id: toastId });
+            const baseMessage = error.response?.data?.message || error.message || 'Network error while connecting to bank.';
+            // `detail` is only sent by the server while developing.
+            const detail = error.response?.data?.detail;
+            const message = detail ? `${baseMessage} (${detail})` : baseMessage;
+            if (error.response?.data?.unavailable) setUnavailableItems(error.response.data.unavailable);
+            // Documents went missing since step 2: send the buyer back to upload them.
+            if (error.response?.data?.code === 'KYC_MISSING') { setCurrentStep(2); fetchKycStatus(); }
+            toast.error(message, { id: toastId });
             setIsInitiatingPayment(false);
         }
     };
@@ -446,6 +367,9 @@ export default function CheckoutPage() {
                                 selectedAddressId={selectedAddressId}
                                 setSelectedAddressId={setSelectedAddressId}
                                 isLoadingAddresses={isLoadingAddresses}
+                                onAddAddress={handleAddAddress}
+                                defaultName={user?.cust_name || ''}
+                                defaultMobile={user?.mobile || ''}
                                 handleProceedToVerification={handleProceedToVerification}
                             />
                         )}
@@ -454,7 +378,7 @@ export default function CheckoutPage() {
                         {currentStep === 2 && (
                             <Verification
                                 isVerifying={isVerifying}
-                                isVerified={isVerified}
+                                kyc={kyc}
                                 kycData={kycData}
                                 isUploadingKyc={isUploadingKyc}
                                 handleKycUpload={handleKycUpload}
@@ -465,6 +389,8 @@ export default function CheckoutPage() {
 
                         {/* STEP 3: ORDER SUMMARY */}
                         {currentStep === 3 && (
+                            <>
+                            {(kyc?.state === 'pending' || kyc?.state === 'rejected') && <div className="mb-4"><KycNotice kyc={kyc} compact /></div>}
                             <OwnerSummary
                                 cartItems={cartItems}
                                 formatCurrency={formatCurrency}
@@ -472,7 +398,9 @@ export default function CheckoutPage() {
                                 isInitiatingPayment={isInitiatingPayment}
                                 unavailableItems={unavailableItems}
                                 removeFromCart={removeFromCart}
+                                warrantyIds={warrantyIds}
                             />
+                            </>
                         )}
 
                         {/* STEP 4: PAYMENT */}
@@ -487,7 +415,7 @@ export default function CheckoutPage() {
                     {/* RIGHT COLUMN: Permanent Sidebar Summary */}
                     <SidebarSummary
                         cartItems={cartItems}
-                        cartSubtotal={cartSubtotal}
+                        totals={totals}
                         totalRequestAmount={totalRequestAmount}
                         walletBalance={walletBalance}
                         applicableWalletAmount={applicableWalletAmount}

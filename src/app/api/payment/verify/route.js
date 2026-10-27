@@ -1,39 +1,83 @@
 import { NextResponse } from 'next/server';
 import { verifyHdfcOrder, verifyCashfreeOrder } from '@/lib/paymentHelpers';
+import { getSessionUser, unauthorized } from '@/lib/server/session';
+import { getPendingOrder, completeOnce, wasCompleted, PENDING_COOKIE } from '@/lib/server/pendingOrder';
+import { completeOrder, OrderError } from '@/lib/server/orders';
+import { logStep } from '@/lib/server/checkoutLog';
 
+const verifyWithGateway = (gateway, orderId) =>
+    gateway === 'HDFC' ? verifyHdfcOrder(orderId) : verifyCashfreeOrder(orderId);
+
+/**
+ * Called by the payment status page. The amount, customer and gateway are
+ * checked against the order the server created — not against anything the
+ * browser sends — and the invoice is created at most once.
+ */
 export async function POST(request) {
+    const user = await getSessionUser();
+    if (!user) return unauthorized();
+
     try {
-        const { orderId, gateway } = await request.json();
-
-        if (!orderId || !gateway) {
-            return NextResponse.json({ success: false, message: "Missing order details" }, { status: 400 });
+        const { orderId } = await request.json();
+        if (!orderId || !String(orderId).startsWith(`GR_${user.crm_party_code}_`)) {
+            return NextResponse.json({ success: false, message: 'Order not found.' }, { status: 404 });
         }
 
-        let verificationResult;
-
-        if (gateway === 'CASHFREE') {
-            verificationResult = await verifyCashfreeOrder(orderId);
-        } else if (gateway === 'HDFC') {
-            verificationResult = await verifyHdfcOrder(orderId);
-        } else if (gateway === 'Wallet' || gateway === 'WALLET') {
-            verificationResult = {
-                isPaid: true,
-                status: "PAID_VIA_WALLET",
-                fullData: { payment_method: "Wallet", order_id: orderId }
-            };
-        } else {
-            return NextResponse.json({ success: false, message: "Invalid gateway" }, { status: 400 });
+        if (wasCompleted(orderId)) {
+            return NextResponse.json({ success: true, isPaid: true, status: 'COMPLETED' });
         }
 
-        return NextResponse.json({ 
-            success: true, 
-            isPaid: verificationResult.isPaid, 
-            status: verificationResult.status,
-            fullData: verificationResult.fullData
-        }, { status: 200 });
+        const order = await getPendingOrder();
 
+        // No pending order (e.g. the page was refreshed after completion):
+        // report the gateway's status but never create another invoice here.
+        if (!order || order.orderId !== orderId) {
+            // Money may have been taken but there is nothing to build an invoice from.
+            console.error('Verify: no matching pending order, no invoice will be created', { orderId, hasPendingCookie: Boolean(order), cookieOrderId: order?.orderId });
+            for (const gateway of ['CASHFREE', 'HDFC']) {
+                try {
+                    const result = await verifyWithGateway(gateway, orderId);
+                    return NextResponse.json({ success: true, isPaid: result.isPaid, status: result.status });
+                } catch {
+                    /* try the next gateway */
+                }
+            }
+            return NextResponse.json({ success: false, message: 'Order not found. Check your order history.' }, { status: 404 });
+        }
+
+        const result = await verifyWithGateway(order.gateway, orderId);
+        await logStep(orderId, `payment verify: ${order.gateway} reply`, { gateway: order.gateway, expected_payable: order.payable, result });
+        if (!result.isPaid) {
+            return NextResponse.json({ success: true, isPaid: false, status: result.status, message: 'Payment was not completed.' });
+        }
+
+        const amountOk = Math.abs(Number(result.amount) - Number(order.payable)) < 0.01;
+        const customerOk = !result.customerId || String(result.customerId) === String(user.crm_party_code);
+        if (!amountOk || !customerOk) {
+            console.error('Payment mismatch', { orderId, expected: order.payable, paid: result.amount, customer: result.customerId });
+            await logStep(orderId, 'payment verify: STOPPED, amount or customer mismatch', { expected: order.payable, paid: result.amount, customer: result.customerId });
+            return NextResponse.json(
+                { success: false, isPaid: false, message: 'Payment details did not match this order. Our team will review it and contact you.' },
+                { status: 409 }
+            );
+        }
+
+        await completeOnce(orderId, () => completeOrder(user, order, result.reference));
+
+        const response = NextResponse.json({ success: true, isPaid: true, status: result.status });
+        response.cookies.delete(PENDING_COOKIE);
+        return response;
     } catch (error) {
-        console.error("Payment Verification Error:", error.message);
-        return NextResponse.json({ success: false, message: error.message || "Failed to verify payment" }, { status: 500 });
+        if (error instanceof OrderError) {
+            return NextResponse.json({
+                success: false,
+                isPaid: true,
+                message: error.message,
+                // The PHP reply is shown only while developing.
+                ...(process.env.NODE_ENV !== 'production' && error.extra?.detail ? { detail: error.extra.detail } : {}),
+            }, { status: 409 });
+        }
+        console.error('Payment verification error:', error.message, error.stack);
+        return NextResponse.json({ success: false, message: 'Could not verify payment. Please check your order history.' }, { status: 502 });
     }
 }

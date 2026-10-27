@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useDashboard } from '@/components/utils/Context/DashboardContext';
 
 export const BannerSliderSkeleton = () => {
@@ -35,8 +34,10 @@ export const BannerSliderSkeleton = () => {
     );
 };
 
-export const BannerSlider = () => {
-    const { bannerData, isLoadingBanners } = useDashboard(); 
+export const BannerSlider = ({ initialBanners = [] }) => {
+    const { bannerData, isLoadingBanners } = useDashboard();
+    // Server-rendered banners show immediately; live data replaces them.
+    const banners = bannerData?.length ? bannerData : initialBanners;
 
     const navigators = [
         "Offers", "Asset Disposition", "About Us", "Lifecycle Management", 
@@ -47,33 +48,31 @@ export const BannerSlider = () => {
     const [currentSlide, setCurrentSlide] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
 
-    const slides = bannerData?.map((e, i) => ({
+    const slides = banners.map((e, i) => ({
         id: i,
-        image: e.bannerUrl, 
-        title: "",
-        subtitle: "",
-        link: e.landing_page === 'info' ? '#' : `/${e.landing_page}`,
-        description: "",
-        ctaText: ""
-    })) || [];
+        image: e.bannerUrl,
+        alt: e.title || e.banner_title || e.banner_name || `GoRevive offer on pre-owned IT hardware – slide ${i + 1}`,
+    }));
+
+    const slideCount = slides.length;
 
     const nextSlide = useCallback(() => {
-        setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-    }, [slides.length]);
+        setCurrentSlide((prev) => (prev >= slideCount - 1 ? 0 : prev + 1));
+    }, [slideCount]);
 
     const prevSlide = useCallback(() => {
-        setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-    }, [slides.length]);
+        setCurrentSlide((prev) => (prev === 0 ? slideCount - 1 : prev - 1));
+    }, [slideCount]);
 
     useEffect(() => {
-        if (isPaused || slides.length === 0) return;
+        if (isPaused || slideCount === 0) return;
         const timer = setInterval(() => {
             nextSlide();
         }, 5000); 
         return () => clearInterval(timer);
-    }, [isPaused, nextSlide, slides.length]);
+    }, [isPaused, nextSlide, slideCount]);
 
-    if (isLoadingBanners) return <BannerSliderSkeleton />;
+    if (isLoadingBanners && slides.length === 0) return <BannerSliderSkeleton />;
     if (!slides || slides.length === 0) return null;
 
     const handleSmoothScroll = (e, navTitle) => {
@@ -132,10 +131,16 @@ export const BannerSlider = () => {
                             }}
                             className={`absolute left-0 right-0 mx-auto w-[100%] h-full rounded-3xl overflow-hidden transition-all duration-700 ease-in-out shadow-2xl ${positionClasses}`}
                         >
-                            <img 
-                                src={slide.image} 
-                                alt={`Promotional Banner ${index + 1}`} 
-                                className="w-full h-full object-cover" 
+                            {/* First slide is the LCP image: load it first; the rest wait. */}
+                            <img
+                                src={slide.image}
+                                alt={slide.alt}
+                                width={1600}
+                                height={640}
+                                loading={index === 0 ? 'eager' : 'lazy'}
+                                fetchPriority={index === 0 ? 'high' : 'low'}
+                                decoding="async"
+                                className="w-full h-full object-cover"
                             />
                             {/* <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div> */}
 

@@ -76,11 +76,11 @@ export const CompanyStats = () => {
                     {/* Left Column: The Narrative */}
                     <div className="w-full lg:w-5/12">
                         <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-[#061410] leading-[1.1] tracking-tight mb-6">
-                            India's trusted leader in <span className="text-[#1B5E3B] font-accent italic font-medium">IT lifecycle</span> management.
+                            India’s trusted leader in <span className="text-[#1B5E3B] font-accent italic font-medium">IT lifecycle</span> management.
                         </h2>
 
                         <p className="text-[17px] text-[#4A6355] leading-relaxed mb-8">
-                            GoRevive, a premium brand under the umbrella of Connect Residuary Private Limited, has emerged as a trusted leader in the preowned IT asset space. With a sharp focus on performance, sustainability, and value, we specialize in delivering enterprise-grade, certified pre-owned IT infrastructure exclusively tailored for the B2B segment.
+                            GoRevive, a premium brand under the umbrella of Connect Residuary Private Limited, has emerged as a trusted leader in the pre-owned IT asset space. With a sharp focus on performance, sustainability, and value, we specialize in delivering enterprise-grade, certified pre-owned IT infrastructure exclusively tailored for the B2B segment.
                         </p>
 
                         {/* Quick Trust Stats placed below the text */}

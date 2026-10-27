@@ -1,253 +1,158 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/components/utils/Context/AuthContext';
-import api from '@/lib/apiClient'; 
+import api from '@/lib/apiClient';
+import { computeOrderTotals } from '@/lib/pricing';
+import { useWarrantyIds, setWarranty } from '@/lib/warrantyStore';
 
 const CartContext = createContext(undefined);
+
+const idOf = (unitOrId) => String(typeof unitOrId === 'object' ? (unitOrId.serialNumber || unitOrId.id) : unitOrId);
 
 export const CartProvider = ({ children }) => {
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    
-    const { user, isAuthenticated } = useAuth();
-    const hasFetched = useRef(false);
 
-    // ==========================================
-    // CART CALCULATION ENGINE
-    // ==========================================
-    const calculateItemPrice = (basePrice, quantity) => {
-        // Apply 3% B2B Discount if quantity is 10 or more (Global cart quantity)
-        if (quantity >= 10) return basePrice * 0.97;
-        return basePrice;
-    };
+    const { user, isAuthenticated, isInitializing } = useAuth();
+    const userCode = user?.crm_party_code;
 
-    const cartTotals = useMemo(() => {
-        let count = 0;
-        let subtotal = 0;
+    // Extended-warranty choices, limited to units actually in the cart.
+    const savedWarrantyIds = useWarrantyIds(userCode);
+    const warrantyIds = useMemo(() => {
+        // Laptops only: the server marks each cart line as eligible or not.
+        const eligible = new Set(cartItems.filter(i => i.product.warrantyEligible).map(i => String(i.product.id)));
+        return savedWarrantyIds.filter(id => eligible.has(id));
+    }, [savedWarrantyIds, cartItems]);
 
-        cartItems.forEach(item => {
-            count += item.quantity;
-        });
+    const toggleWarranty = useCallback((unitId, enabled) => {
+        setWarranty(userCode, [idOf(unitId)], enabled ?? !warrantyIds.includes(idOf(unitId)));
+    }, [userCode, warrantyIds]);
 
-        // Calculate subtotal with the global discount logic if applicable
-        cartItems.forEach(item => {
-            const finalPrice = calculateItemPrice(item.product.price, count);
-            subtotal += (finalPrice * item.quantity);
-        });
+    // Display totals. The amount actually charged is recalculated on the server
+    // with the same function (lib/pricing.js).
+    const totals = useMemo(() => computeOrderTotals(cartItems, 0, warrantyIds), [cartItems, warrantyIds]);
 
-        return { count, subtotal };
-    }, [cartItems]);
-
-    // ==========================================
-    // SERVER SYNCHRONIZATION
-    // ==========================================
     const fetchServerCart = useCallback(async () => {
-        if (!isAuthenticated || !user?.crm_party_code) {
+        if (!userCode) {
             setCartItems([]);
             setLoading(false);
             return;
         }
-
         setLoading(true);
         try {
-            const response = await api.get(`/cart?userId=${user.crm_party_code}`);
-            
-            if (response.data?.success && response.data?.cart) {
-                setCartItems(response.data.cart);
-            } else {
-                setCartItems([]);
-            }
+            const response = await api.get('/cart');
+            setCartItems(response.data?.success && Array.isArray(response.data.cart) ? response.data.cart : []);
         } catch (error) {
-            console.error("Failed to sync cart:", error);
+            console.error("Failed to sync cart:", error.message);
             setCartItems([]);
         } finally {
             setLoading(false);
         }
-    }, [isAuthenticated, user]);
+    }, [userCode]);
 
+    // Re-load whenever the signed-in account changes (login, logout, switch).
     useEffect(() => {
-        if (hasFetched.current) return;
-        if (isAuthenticated) {
-            hasFetched.current = true;
-            fetchServerCart();
-        }
-    }, [isAuthenticated, fetchServerCart]);
+        if (isInitializing) return;
+        fetchServerCart();
+    }, [isInitializing, fetchServerCart]);
 
-    // ==========================================
-    // ACTIONS
-    // ==========================================
-    const addToCart = useCallback(async (product, quantity = 1) => {
-        if (!isAuthenticated || !user?.crm_party_code) {
+    const updateCart = useCallback(async (ids, action) => {
+        const { data } = await api.post('/cart', { ids, action });
+        await fetchServerCart();
+        if (!data?.success) throw new Error(data?.message || 'Cart update failed');
+        return data;
+    }, [fetchServerCart]);
+
+    const addToCart = useCallback(async (product, { warranty = false } = {}) => {
+        if (!isAuthenticated) {
             toast.error("Please log in to add items to your cart.");
             return;
         }
-
-        const existingItem = cartItems.find(item => item.product.id === product.id);
-        
-        if (existingItem) {
-            toast.error(`This specific unit is already in your cart.`);
+        const id = idOf(product);
+        if (cartItems.some(item => String(item.product.id) === id)) {
+            toast.error("This specific unit is already in your cart.");
             return;
         }
+        // Record the warranty choice first; it only counts once the unit is in the cart.
+        setWarranty(userCode, [id], warranty);
+        return toast.promise(updateCart([id], 'P'), {
+            loading: 'Allocating unit...',
+            success: (data) => data?.message || 'Added to order!',
+            error: (err) => err.response?.data?.message || err.message || 'Failed to allocate unit.',
+        }).catch(() => {}); // error already shown by the toast
+    }, [cartItems, isAuthenticated, updateCart, userCode]);
 
-        toast.promise(
-            api.post('/cart', { unit: product, userId: user.crm_party_code }),
-            {
-                loading: 'Allocating unit...',
-                success: (response) => {
-                    fetchServerCart(); 
-                    return response.data?.message || 'Added to order!';
-                },
-                error: (err) => err.response?.data?.message || 'Failed to allocate unit.',
-            }
-        );
-    }, [cartItems, isAuthenticated, user, fetchServerCart]);
-
-    const addMultipleToCart = async (productsArray) => {
-        console.log(productsArray)
-        if (!isAuthenticated || !user?.crm_party_code) return toast.error("Please log in.");
-        
-        const toastId = toast.loading(`Allocating ${productsArray.length} units...`);
+    const addMultipleToCart = useCallback(async (productsArray, { warranty = false } = {}) => {
+        if (!isAuthenticated) return toast.error("Please log in.");
+        const ids = productsArray.map(idOf);
+        setWarranty(userCode, ids, warranty);
+        const toastId = toast.loading(`Allocating ${ids.length} units...`);
         try {
-            await Promise.all(productsArray.map(product => 
-                api.post('/cart', { unit: product, userId: user.crm_party_code })
-            ));
-            
-            await fetchServerCart();
-            toast.success(`Added ${productsArray.length} units to order`, { id: toastId });
+            await updateCart(ids, 'P');
+            toast.success(`Added ${ids.length} units to order`, { id: toastId });
         } catch (error) {
-            toast.error("Failed to allocate some units", { id: toastId });
+            toast.error(error.response?.data?.message || "Failed to allocate some units", { id: toastId });
         }
-    };
+    }, [isAuthenticated, updateCart, userCode]);
 
-    const removeMultipleFromCart = async (productIdsArray) => {
-        if (!isAuthenticated || !user?.crm_party_code) return;
-
-        const toastId = toast.loading(`Releasing ${productIdsArray.length} units...`);
+    const removeMultipleFromCart = useCallback(async (productIdsArray) => {
+        if (!isAuthenticated) return;
+        const ids = productIdsArray.map(idOf);
+        const toastId = toast.loading(`Releasing ${ids.length} units...`);
         try {
-            await Promise.all(productIdsArray.map(id => {
-                const item = cartItems.find(i => i.product.id === id);
-                return api.post('/cart', { unit: item.product, userId: user.crm_party_code, action: 'R' });
-            }));
-            
-            await fetchServerCart();
-            toast.success(`Released ${productIdsArray.length} units`, { id: toastId });
+            await updateCart(ids, 'R');
+            toast.success(`Released ${ids.length} units`, { id: toastId });
         } catch (error) {
             toast.error("Failed to release some units", { id: toastId });
         }
-    };
+    }, [isAuthenticated, updateCart]);
 
-// const removeFromCart = useCallback(async (productId) => {
-//         const itemToRemove = cartItems.find(item => item.product.id === productId);
-//         if (!itemToRemove || !user?.crm_party_code) return;
-
-//         toast.promise(
-//             api.post('/cart', { 
-//                 unit: itemToRemove.product, 
-//                 userId: user.crm_party_code, 
-//                 action: 'R' 
-//             }),
-//             {
-//                 loading: 'Releasing unit...',
-//                 success: () => {
-//                     setCartItems(prev => prev.filter(item => item.product.id !== productId));
-//                     fetchServerCart(); 
-//                     return 'Unit removed from order.';
-//                 },
-//                 error: 'Failed to release unit.',
-//             }
-//         );
-//     }, [cartItems, user, fetchServerCart]);
-
-const removeFromCart = useCallback(async (productId) => {
-    
-        const itemToRemove = cartItems.find(item => item.product.id === productId);
-        if (!itemToRemove) return;
-
-        if (isAuthenticated && user?.crm_party_code) {
-            toast.promise(
-                api.post('/cart', {
-                    unit: itemToRemove.product,
-                    userId: user.crm_party_code,
-                    action: "R"
-                }),
-                {
-                    loading: 'Removing item...',
-                    success: () => {
-                        // Immediately update UI, then sync with server
-                        setCartItems(prev => prev.filter(item => item.product.id !== productId));
-                        fetchServerCart();
-                        return 'Item removed successfully.';
-                    },
-                    error: 'Failed to remove item.'
-                }
-            );
-        } else {
-            // Local fallback
-            setCartItems(prev => prev.filter(item => item.product.id !== productId));
-        }
-    }, [cartItems, isAuthenticated, user, fetchServerCart]);
-
+    const removeFromCart = useCallback(async (productId) => {
+        if (!isAuthenticated) return;
+        return toast.promise(updateCart([idOf(productId)], 'R'), {
+            loading: 'Removing item...',
+            success: 'Item removed successfully.',
+            error: 'Failed to remove item.',
+        }).catch(() => {}); // error already shown by the toast
+    }, [isAuthenticated, updateCart]);
 
     const decrementCartQuantity = useCallback(async (product) => {
-        const existingItem = cartItems.find(item => item.product.id === product.id);
-        if (!existingItem || existingItem.quantity <= 1) return;
+        const existing = cartItems.find(item => String(item.product.id) === idOf(product));
+        if (!existing || existing.quantity <= 1 || !isAuthenticated) return;
+        return toast.promise(updateCart([idOf(product)], 'M'), {
+            loading: 'Updating quantity...',
+            success: 'Quantity updated.',
+            error: 'Failed to update quantity.',
+        }).catch(() => {}); // error already shown by the toast
+    }, [cartItems, isAuthenticated, updateCart]);
 
-        if (isAuthenticated && user?.crm_party_code) {
-            toast.promise(
-                api.post('/cart', {
-                    unit: product,
-                    userId: user.crm_party_code,
-                    action: "M"
-                }),
-                {
-                    loading: 'Updating quantity...',
-                    success: () => {
-                        setCartItems(prev => prev.map(item => 
-                            item.product.id === product.id 
-                                ? { ...item, quantity: item.quantity - 1 } 
-                                : item
-                        ));
-                        fetchServerCart();
-                        return 'Quantity updated.';
-                    },
-                    error: 'Failed to update quantity.'
-                }
-            );
-        } else {
-            // Local fallback
-            setCartItems(prev => prev.map(item => 
-                item.product.id === product.id 
-                    ? { ...item, quantity: item.quantity - 1 } 
-                    : item
-            ));
-        }
-    }, [cartItems, isAuthenticated, user, fetchServerCart]);
-
-
+    // After an order completes, re-read the cart from the server (PHP clears
+    // purchased units). On logout this simply empties local state.
     const clearCart = useCallback(() => {
         setCartItems([]);
-    }, []);
+        if (userCode) fetchServerCart();
+    }, [userCode, fetchServerCart]);
 
     const value = useMemo(() => ({
         cartItems,
-        cartCount: cartTotals.count,
-        cartSubtotal: cartTotals.subtotal,
+        cartCount: totals.units,
+        cartSubtotal: totals.subtotal,
+        cartTotals: totals,
+        warrantyIds,
+        toggleWarranty,
         loading,
+        refreshCart: fetchServerCart,
         addToCart,
         removeFromCart,
         decrementCartQuantity,
         addMultipleToCart,
         removeMultipleFromCart,
-        clearCart
-    }), [cartItems, cartTotals, loading,decrementCartQuantity, addMultipleToCart, removeMultipleFromCart, addToCart, removeFromCart, clearCart]);
+        clearCart,
+    }), [cartItems, totals, warrantyIds, toggleWarranty, loading, fetchServerCart, addToCart, removeFromCart, decrementCartQuantity, addMultipleToCart, removeMultipleFromCart, clearCart]);
 
-    return (
-        <CartContext.Provider value={value}>
-            {children}
-        </CartContext.Provider>
-    );
+    return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
 export const useCart = () => {
