@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken, setSessionCookie } from '@/lib/server/session';
+import { decryptToken, setSessionCookie } from '@/lib/server/session';
 import { OTP_COOKIE, otpMatches } from '@/lib/server/otp';
 import { rateLimit, resetLimit } from '@/lib/server/rateLimit';
 
@@ -16,7 +16,7 @@ export async function POST(request) {
 
         let challenge;
         try {
-            challenge = await verifyToken(token);
+            challenge = await decryptToken(token);
         } catch {
             return NextResponse.json({ success: false, message: 'OTP expired. Please request a new one.' }, { status: 400 });
         }

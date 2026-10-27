@@ -26,6 +26,14 @@ export function resetLimit(key) {
 
 export async function clientIp() {
     const h = await headers();
+    // X-Forwarded-For can be spoofed by the client unless your proxy overwrites it.
+    // Set TRUSTED_IP_HEADER to the header your host/CDN sets itself (for example
+    // x-vercel-forwarded-for or cf-connecting-ip) so per-IP limits cannot be dodged.
+    const trusted = process.env.TRUSTED_IP_HEADER;
+    if (trusted) {
+        const value = h.get(trusted);
+        if (value) return value.split(',')[0].trim();
+    }
     return (h.get('x-forwarded-for') || '').split(',')[0].trim() || h.get('x-real-ip') || 'unknown';
 }
 

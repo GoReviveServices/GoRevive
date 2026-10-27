@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { phpPost, isTrue } from './php';
-import { signToken, pickSessionUser, cookieOptions } from './session';
+import { encryptToken, pickSessionUser, cookieOptions } from './session';
 
 export const OTP_COOKIE = 'otp_challenge';
 const OTP_TTL_SECONDS = 5 * 60;
@@ -19,8 +19,10 @@ const isDummyUser = (u) => u.cust_name === 'XYZ' || u.state === 'state' || u.pin
 
 /**
  * Asks PHP to send an OTP for this mobile number. The OTP and user record stay
- * on the server: they are signed into a short-lived httpOnly cookie that only
- * /api/auth/verify-otp can read.
+ * on the server: they are ENCRYPTED into a short-lived httpOnly cookie that only
+ * /api/auth/verify-otp can read. (Signing alone is not enough: anyone can type a
+ * stranger's number into the login box and would then be able to decode that
+ * customer's name, email, address and GST number from their own cookie.)
  * Returns { next: 'otp', challenge } or { next: 'register' }.
  */
 export async function startOtpChallenge(mobile) {
@@ -31,7 +33,7 @@ export async function startOtpChallenge(mobile) {
         return { next: 'register' };
     }
 
-    const challenge = await signToken(
+    const challenge = await encryptToken(
         {
             typ: 'otp',
             mobile,

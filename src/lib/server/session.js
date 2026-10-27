@@ -1,5 +1,6 @@
 import 'server-only';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, EncryptJWT, jwtDecrypt } from 'jose';
+import { createHash } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -48,6 +49,24 @@ export async function signToken(payload, expiresIn) {
 
 export async function verifyToken(token) {
     const { payload } = await jwtVerify(token, secret());
+    return payload;
+}
+
+// Encrypted (not just signed) tokens, for data the browser carries but must not be able to read.
+// A signed JWT is only base64: anyone holding the cookie can decode it.
+const encryptionKey = () =>
+    createHash('sha256').update('gorevive:encrypted-token:').update(secret()).digest();
+
+export async function encryptToken(payload, expiresIn) {
+    return new EncryptJWT(payload)
+        .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+        .setIssuedAt()
+        .setExpirationTime(expiresIn)
+        .encrypt(encryptionKey());
+}
+
+export async function decryptToken(token) {
+    const { payload } = await jwtDecrypt(token, encryptionKey());
     return payload;
 }
 
