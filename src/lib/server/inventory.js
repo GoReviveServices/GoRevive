@@ -115,6 +115,7 @@ export function getProductBundles(tier = 'customer') {
 
                 bundle = {
                     id: key,
+                    model_code: item.model_code || '',
                     slug,
                     brand: item.brand,
                     model: item.common_model || key,
