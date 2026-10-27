@@ -3,6 +3,7 @@ import { verifyHdfcOrder, verifyCashfreeOrder } from '@/lib/paymentHelpers';
 import { getSessionUser, unauthorized } from '@/lib/server/session';
 import { getPendingOrder, completeOnce, wasCompleted, PENDING_COOKIE } from '@/lib/server/pendingOrder';
 import { completeOrder, OrderError } from '@/lib/server/orders';
+import { logStep } from '@/lib/server/checkoutLog';
 
 const verifyWithGateway = (gateway, orderId) =>
     gateway === 'HDFC' ? verifyHdfcOrder(orderId) : verifyCashfreeOrder(orderId);
@@ -45,6 +46,7 @@ export async function POST(request) {
         }
 
         const result = await verifyWithGateway(order.gateway, orderId);
+        await logStep(orderId, `payment verify: ${order.gateway} reply`, { gateway: order.gateway, expected_payable: order.payable, result });
         if (!result.isPaid) {
             return NextResponse.json({ success: true, isPaid: false, status: result.status, message: 'Payment was not completed.' });
         }
@@ -53,6 +55,7 @@ export async function POST(request) {
         const customerOk = !result.customerId || String(result.customerId) === String(user.crm_party_code);
         if (!amountOk || !customerOk) {
             console.error('Payment mismatch', { orderId, expected: order.payable, paid: result.amount, customer: result.customerId });
+            await logStep(orderId, 'payment verify: STOPPED, amount or customer mismatch', { expected: order.payable, paid: result.amount, customer: result.customerId });
             return NextResponse.json(
                 { success: false, isPaid: false, message: 'Payment details did not match this order. Our team will review it and contact you.' },
                 { status: 409 }

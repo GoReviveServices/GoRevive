@@ -8,13 +8,14 @@ import { warrantyDays, isWarrantyEligible, EXT_WARRANTY_MONTHS, EXT_WARRANTY_RAT
 import { getCartCategoryResolver } from './inventory';
 import { fetchKycState } from './kyc';
 import { kycAllowsOrder } from '@/lib/kyc';
+import { logStep, fileLogOn } from './checkoutLog';
 
 // ---------------------------------------------------------------------------
 // Cart, wallet and address — always read from PHP for the signed-in user.
 // ---------------------------------------------------------------------------
 
-export async function getServerCart(crmPartyCode) {
-    const payload = await phpPost('view_cart.php', { userid: crmPartyCode });
+export async function getServerCart(crmPartyCode, { logOrder } = {}) {
+    const payload = await phpPost('view_cart.php', { userid: crmPartyCode }, { logOrder });
     if (!isTrue(payload) || !Array.isArray(payload?.data?.cartdata)) return [];
 
     const categoryOf = await getCartCategoryResolver();
@@ -91,8 +92,11 @@ const istTimestamp = (d = new Date()) => {
  * Returns the order snapshot that payment and invoicing are checked against.
  */
 export async function createOrder(user, { addressId, gateway, warrantyIds = [] }, { beforePO } = {}) {
+    // Made first so the cart read below already lands in this order's log file.
+    const orderId = `GR_${user.crm_party_code}_${Date.now()}`;
+    await logStep(orderId, 'createOrder: started', { crm_party_code: user.crm_party_code, addressId, gateway, warrantyIds_from_browser: warrantyIds });
     const [items, walletBalance, address, kyc] = await Promise.all([
-        getServerCart(user.crm_party_code),
+        getServerCart(user.crm_party_code, { logOrder: orderId }),
         getWalletBalance(user.crm_party_code),
         resolveAddress(user, addressId),
         fetchKycState(user.crm_party_code),
@@ -115,9 +119,15 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
     const warranty = [...new Set((Array.isArray(warrantyIds) ? warrantyIds : []).map(String))].filter((id) => cartIds.has(id));
     const totals = computeOrderTotals(items, walletBalance, warranty);
     if (totals.units < MIN_ORDER_UNITS) throw new OrderError(`Minimum order is ${MIN_ORDER_UNITS} units.`);
-    const orderId = `GR_${user.crm_party_code}_${Date.now()}`;
     const orderDate = istTimestamp();
     const paymentMode = totals.payable === 0 ? 'Wallet' : gateway;
+    await logStep(orderId, 'createOrder: priced on server', {
+        walletBalance,
+        address,
+        warrantyIds_accepted: warranty,
+        totals,
+        lines: items.map((i) => ({ imei: i.product.id, model_code: i.product.model_code, productCategory: i.product.productCategory, warrantyEligible: i.product.warrantyEligible, price: i.product.price, quantity: i.quantity, extended_warranty: warranty.includes(String(i.product.id)) })),
+    });
 
     // The payment session is opened before the PO exists, so a gateway that
     // refuses to open never leaves a stray PO behind in the backend.
@@ -154,7 +164,7 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
                 shipping_zip: address.zip,
             },
         },
-        { raw: true }
+        { raw: true, logOrder: orderId }
     );
     if (phpRejected(po)) {
         console.error('POCreate.php rejected the order', { orderId, response: po });
@@ -185,10 +195,12 @@ export async function createOrder(user, { addressId, gateway, warrantyIds = [] }
  * Re-reads the cart and refuses if it no longer matches what was paid for.
  */
 export async function completeOrder(user, order, paymentReference) {
-    const items = await getServerCart(user.crm_party_code);
+    await logStep(order.orderId, 'completeOrder: payment verified, creating invoice', { paymentReference, gateway: order.gateway, payable: order.payable, total: order.total, warrantyIds: order.warrantyIds });
+    const items = await getServerCart(user.crm_party_code, { logOrder: order.orderId });
     const warranty = order.warrantyIds || [];
     const nowFingerprint = cartFingerprint(items, warranty);
     if (nowFingerprint !== order.fingerprint) {
+        await logStep(order.orderId, 'completeOrder: STOPPED, cart changed after payment started', { expected: order.fingerprint, now: nowFingerprint });
         console.error('completeOrder: cart changed after payment started; no invoice created', { orderId: order.orderId, cartLines: items.length });
         throw new OrderError('Your cart changed after payment started. Our team will contact you to reconcile this order.');
     }
@@ -246,21 +258,51 @@ export async function completeOrder(user, order, paymentReference) {
         })),
     };
 
-    console.log(payload)
-
-
-
-    // What PHP is about to be asked to book, so a rejection can be compared with
-    // the example payload: line total + extra charge should relate to tot_amount.
-
-    const res = await phpPost('invoice_creation.php', { BillJSON: payload }, { raw: true });
-    console.log(res)
+    // The exact BillJSON and PHP's reply are saved to logs/checkout/<order_no>.json.
+    const res = await phpPost('invoice_creation.php', { BillJSON: payload }, { raw: true, logOrder: order.orderId });
     if (phpRejected(res)) {
         console.error('invoice_creation.php rejected the invoice', { orderId: order.orderId, response: res });
         // Customers get the plain message; the PHP reply is for the developer only.
         throw new OrderError('Failed to create invoice.', { detail: phpReplySummary(res) });
     }
+    // Read back what PHP stored for this order, so the log shows sent vs saved.
+    // Awaited so it is in the file before the status page loads; it never throws.
+    if (fileLogOn()) await logStoredInvoice(user.crm_party_code, order.orderId, payload);
     return res;
+}
+
+// Reads the order list back from PHP and saves this order's rows next to what we
+// sent, line by line (by IMEI), with any field that differs flagged.
+async function logStoredInvoice(crmPartyCode, orderId, sent) {
+    try {
+        await logStep(orderId, 'read back: calling getorder_list_invoice_item_wise.php', { challan_no: crmPartyCode });
+        // Logged as a full PHP call: URL, what we sent and PHP's raw reply.
+        const list = await phpPost('getorder_list_invoice_item_wise.php', { challan_no: crmPartyCode }, { raw: true, logOrder: orderId });
+        const rows = (Array.isArray(list?.data) ? list.data : Array.isArray(list?.response?.data) ? list.response.data : [])
+            .filter((r) => String(r.order_id) === String(orderId));
+        const compare = ['warranty_days', 'item_total', 'model_code'];
+        const by_line = sent.invoice_details.map((line) => {
+            const stored = rows.find((r) => String(r.imei1) === String(line.imei1));
+            const differs = stored ? compare.filter((k) => String(stored[k] ?? '') !== String(line[k] ?? '')) : ['row not found'];
+            return {
+                imei1: line.imei1,
+                sent: Object.fromEntries(compare.map((k) => [k, line[k]])),
+                stored: stored ? Object.fromEntries(compare.map((k) => [k, stored[k]])) : null,
+                differs,
+            };
+        });
+        const header = ['extra_charges', 'extra_per', 'extra_amt', 'wallet_amount', 'cashfree_amount', 'payment_reference'];
+        const first = rows[0] || {};
+        await logStep(orderId, 'read back: sent vs stored (rows for this order only)', {
+            php_status: list?.status ?? list?.response?.status,
+            rows_found: rows.length,
+            sent_vs_stored_by_line: by_line,
+            sent_vs_stored_header: Object.fromEntries(header.map((k) => [k, { sent: sent[k], stored: first[k], differs: String(sent[k] ?? '') !== String(first[k] ?? '') }])),
+        });
+    } catch (error) {
+        await logStep(orderId, 'read back: getorder_list_invoice_item_wise.php failed', { message: error.message, code: error.code, httpStatus: error.response?.status })
+            .catch(() => {});
+    }
 }
 
 // A short, readable version of what PHP replied, for the developer-only `detail`.

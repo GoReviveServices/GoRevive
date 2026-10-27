@@ -2,12 +2,12 @@ import 'server-only';
 
 // Logs the PO creation call (POCreate.php): the request we send and the reply we
 // get, so a missing PO can be traced. Printed with the prefix [checkout-debug].
-// On by default; set CHECKOUT_DEBUG=false to silence it. Secrets (tokens, keys,
+// Off by default; set CHECKOUT_DEBUG=true to turn it on. Secrets (tokens, keys,
 // cookies) are masked.
 const SECRET_KEY = /token|secret|password|authorization|api[-_]?key|cookie/i;
 const MAX_LINE = 6000;
 
-export const debugOn = () => process.env.CHECKOUT_DEBUG !== 'false';
+export const debugOn = () => process.env.CHECKOUT_DEBUG === 'true';
 
 function scrub(value, depth = 0) {
     if (value == null) return value;
