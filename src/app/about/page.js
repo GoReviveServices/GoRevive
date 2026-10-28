@@ -11,9 +11,9 @@ export const metadata = pageMetadata({
 
 export default function AboutUs() {
   const directors = [
-    { name: "Rohit Kakkar", title: "Founder and Director", image: "/images/rohit-kakkar-founder-director-gorevive.svg", linkedin: "https://www.linkedin.com/in/rohit-kakkar-38539816/" },
-    { name: "Ankush Bhan", title: "Founder and Director", image: "/images/ankush-bhan-founder-director-gorevive.svg", linkedin: "https://www.linkedin.com/in/ankush-bhan-26b90b5/" },
-    { name: "Dheeraj Joshi", title: "Vice President, Sales", image: "/images/dheeraj-joshi-vice-president-sales-gorevive.svg", linkedin: "https://www.linkedin.com/in/dheeraj-joshi/" }
+    { name: "Rohit Kakkar", title: "Founder and Director", image: "/images/rohit-kakkar-founder-director-gorevive.webp", linkedin: "https://www.linkedin.com/in/rohit-kakkar-38539816/" },
+    { name: "Ankush Bhan", title: "Founder and Director", image: "/images/ankush-bhan-founder-director-gorevive.webp", linkedin: "https://www.linkedin.com/in/ankush-bhan-26b90b5/" },
+    { name: "Dheeraj Joshi", title: "Vice President, Sales", image: "/images/dheeraj-joshi-vice-president-sales-gorevive.webp", linkedin: "https://www.linkedin.com/in/dheeraj-joshi/" }
   ];
 
   const officeImages = [
@@ -87,7 +87,7 @@ export default function AboutUs() {
               <div key={index} className="group flex flex-col items-center bg-slate-50 p-8 rounded-3xl transition-all duration-300 hover:bg-white hover:shadow-2xl hover:-translate-y-2 border border-transparent hover:border-slate-100">
                 <div className="relative mb-6">
                   <div className="absolute inset-0 bg-blue-600 rounded-full blur opacity-0 group-hover:opacity-30 transition-opacity duration-300 transform scale-110"></div>
-                  <img src={director.image} alt={`${director.name}, ${director.title} at GoRevive`} className="relative w-40 h-40 rounded-full object-cover border-4 border-white shadow-md z-10"/>
+                  <img src={director.image} alt={`${director.name}, ${director.title} at GoRevive`} width={160} height={160} loading="lazy" decoding="async" className="relative w-40 h-40 rounded-full object-cover border-4 border-white shadow-md z-10"/>
                   <a 
                     href={director.linkedin} 
                     target="_blank" 

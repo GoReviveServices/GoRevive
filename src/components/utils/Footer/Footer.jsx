@@ -53,7 +53,7 @@ export const Footer = async () => {
           <div>
             <h2 className="font-semibold tracking-wider uppercase text-base">Company</h2>
             <ul className="mt-4 space-y-2">
-              <li><Link href="/about" className="text-gray-400 hover:text-white">About Us</Link></li>
+              <li><Link href="/about" aria-label="About Us: GoRevive company and team" className="text-gray-400 hover:text-white">About Us</Link></li>
               <li><Link href="/products" className="text-gray-400 hover:text-white">Our Products</Link></li>
               <li><Link href="/grading" className="text-gray-400 hover:text-white">Grading Parameters</Link></li>
               <li><Link href="/support" className="text-gray-400 hover:text-white">Support</Link></li>

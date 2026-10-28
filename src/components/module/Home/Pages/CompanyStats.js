@@ -65,7 +65,7 @@ const PILLARS = [
 
 export const CompanyStats = () => {
     return (
-        <section id="about-us" className="bg-gradient-to-br from-white via-white to-[#E6F4EA] py-20 lg:py-28 relative overflow-hidden">
+        <section id="about-gorevive" className="bg-gradient-to-br from-white via-white to-[#E6F4EA] py-20 lg:py-28 relative overflow-hidden">
             
             {/* Subtle background element */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#F0FAF5] rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 const CatogeryImage = ({ type, className = 'w-6 h-6' }) => {
   const CatogeryImages = {
@@ -12,18 +13,25 @@ const CatogeryImage = ({ type, className = 'w-6 h-6' }) => {
     'mobiles': "https://i.pinimg.com/736x/24/22/32/24223258deb2711a6cfb6ffe2ba3b5e9.jpg",
     'iphone': "https://i.pinimg.com/1200x/18/84/24/1884248df0286062436ea23d29ef5183.jpg",
     'smart phone': "https://i.pinimg.com/736x/24/22/32/24223258deb2711a6cfb6ffe2ba3b5e9.jpg",
-    'tiny desktop': "/images/tiny-desktop-mini-pc.svg",
+    'tiny desktop': "/images/tiny-desktop-mini-pc.webp",
   };
 
-  // Safe fallback just in case the backend returns an unknown category
-  const imageUrl = CatogeryImages[type] || "https://placehold.co/400x400/f3f4f6/a1a1aa?text=Category";
+  const imageUrl = CatogeryImages[type];
 
+  // Unknown category: neutral local placeholder instead of a third-party image
+  if (!imageUrl) {
+    return <span className={`${className} block bg-gray-100 rounded-full`} aria-hidden="true" />;
+  }
+
+  // Shown at ~56px: ask for a 2x (112px) optimised copy, not the 736-1200px original
   return (
-    <img 
-      src={imageUrl} 
-      className={className} 
+    <Image
+      src={imageUrl}
+      className={className}
       alt={type ? `Pre-Owned ${type}` : ''}
-      loading="lazy"
+      width={112}
+      height={112}
+      sizes="56px"
     />
   );
 };

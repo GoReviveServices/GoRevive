@@ -71,7 +71,7 @@ export const ProductCard = React.memo(function ProductCard({ product, priority =
                     grade is the one piece of decision-relevant info that didn't have a home. */}
                 {conditions.length > 0 && (
                     <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] text-gray-400 font-medium">Grade</span>
+                        <span className="text-[10px] text-gray-500 font-medium">Grade</span>
                         <div className="flex items-center gap-1">
                             {conditions.map((condition, idx) => (
                                 <React.Fragment key={idx}>
@@ -99,7 +99,7 @@ export const ProductCard = React.memo(function ProductCard({ product, priority =
                                     {formatCurrency(product.startingPrice)}
                                 </span>
                                 {hasDiscount && (
-                                    <span className="text-[12px] md:text-[13px] text-gray-400 line-through font-medium">
+                                    <span className="text-[12px] md:text-[13px] text-gray-500 line-through font-medium">
                                         {formatCurrency(product.mrp)}
                                     </span>
                                 )}

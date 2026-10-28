@@ -10,12 +10,12 @@ const PRIMARY_LICENSE = {
 };
 
 const STANDARD_CERTS = [
-    { imgSrc: "images/iso-9001-2015-certified-it-refurbisher.png", title: "ISO 9001:2015", subtitle: "Quality Management Systems", bullets: ["Audited operational excellence", "Consistent product quality", "Strict regulatory compliance"] },
-    { imgSrc: "images/nist-800-88-certified-data-erasure.jpg", title: "NIST 800-88", subtitle: "Global Data Erasure Standard", bullets: ["Guaranteed data destruction", "Protection from corporate leaks", "Audit-ready certificates provided"] },
-    { imgSrc: "images/dpcc-authorised-e-waste-handler.webp", title: "DPCC Authorized", subtitle: "Pollution Control Committee", bullets: ["Certified hazardous waste handling", "Eco-friendly disposal policies", "CTO & CTE regulatory approved"] },
-    { imgSrc: "images/msme-udyam-registered-enterprise.png", title: "MSME Registered", subtitle: "Government of India", bullets: ["Udyam registered enterprise", "Trusted SME corporate partner", "Verified business operations"] },
-    { imgSrc: "images/gst-registered-business.webp", title: "GST Compliant", subtitle: "Form GST REG-06", bullets: ["Transparent B2B billing", "Input Tax Credit (ITC) ready", "Fully compliant taxation"] },
-    { imgSrc: "images/mcd-factory-licence-delhi.png", title: "Factory License", subtitle: "Municipal Corporation Delhi", bullets: ["Authorized industrial operations", "Safe working environment", "Regulated IT refurbishment"] }
+    { imgSrc: "images/iso-9001-2015-certified-it-refurbisher-sm.webp", title: "ISO 9001:2015", subtitle: "Quality Management Systems", bullets: ["Audited operational excellence", "Consistent product quality", "Strict regulatory compliance"] },
+    { imgSrc: "images/nist-800-88-certified-data-erasure-sm.webp", title: "NIST 800-88", subtitle: "Global Data Erasure Standard", bullets: ["Guaranteed data destruction", "Protection from corporate leaks", "Audit-ready certificates provided"] },
+    { imgSrc: "images/dpcc-authorised-e-waste-handler-sm.webp", title: "DPCC Authorized", subtitle: "Pollution Control Committee", bullets: ["Certified hazardous waste handling", "Eco-friendly disposal policies", "CTO & CTE regulatory approved"] },
+    { imgSrc: "images/msme-udyam-registered-enterprise.webp", title: "MSME Registered", subtitle: "Government of India", bullets: ["Udyam registered enterprise", "Trusted SME corporate partner", "Verified business operations"] },
+    { imgSrc: "images/gst-registered-business-sm.webp", title: "GST Compliant", subtitle: "Form GST REG-06", bullets: ["Transparent B2B billing", "Input Tax Credit (ITC) ready", "Fully compliant taxation"] },
+    { imgSrc: "images/mcd-factory-licence-delhi-sm.webp", title: "Factory License", subtitle: "Municipal Corporation Delhi", bullets: ["Authorized industrial operations", "Safe working environment", "Regulated IT refurbishment"] }
 ];
 
 // --- Sub-Components ---
@@ -29,7 +29,7 @@ const CertificateCard = ({ cert }) => (
     <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:bg-white hover:border-[#1B5E3B]/15">
         <div className="flex items-center gap-4 mb-5">
             <div className="w-[60px] h-[60px] shrink-0 bg-white rounded-lg border border-gray-100 shadow-sm flex items-center justify-center p-2 overflow-hidden">
-                <img src={`/${cert.imgSrc}`} alt={`${cert.title} – ${cert.subtitle}`} className="w-full h-full object-contain" />
+                <img src={`/${cert.imgSrc}`} alt={`${cert.title} – ${cert.subtitle}`} width={60} height={60} loading="lazy" decoding="async" className="w-full h-full object-contain" />
             </div>
             <div>
                 <h3 className="font-display text-[18px] font-bold text-[#0B2136] leading-tight mb-1">
