@@ -16,15 +16,26 @@ const BrandImage = ({ type, className = 'w-10 h-10' }) => {
     'microsoft': "https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg",
   };
 
-  // Safe fallback if the backend returns a brand you haven't mapped yet
-  const imageUrl = BrandImages[normalizedType] || `https://placehold.co/400x400/f3f4f6/a1a1aa?text=${type || 'Brand'}`;
+  const imageUrl = BrandImages[normalizedType];
+
+  // Unmapped brand: show the name locally instead of a third-party placeholder image
+  if (!imageUrl) {
+    return (
+      <span className={`${className} flex items-center justify-center text-sm font-bold text-gray-500 text-center`}>
+        {type || 'Brand'}
+      </span>
+    );
+  }
 
   return (
-    <img 
-      src={imageUrl} 
-      className={className} 
+    <img
+      src={imageUrl}
+      className={className}
       alt={`${type || 'Brand'} logo`}
+      width={64}
+      height={64}
       loading="lazy"
+      decoding="async"
     />
   );
 };

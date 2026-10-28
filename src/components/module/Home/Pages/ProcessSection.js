@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LiteYouTube from '../Components/LiteYouTube';
 
 export const ProcessSection = () => {
     return (
@@ -18,16 +19,7 @@ export const ProcessSection = () => {
                 {/* Video Card Container */}
                 <div className="bg-white p-3 md:p-4 rounded-3xl m-auto shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-100 transition-transform duration-500 hover:scale-[1.01]">
                     <div className="aspect-video rounded-md overflow-hidden shadow-inner bg-gray-900 relative">
-                        {/* Note: 'title' is required for accessibility. 
-                           'aspect-video' combined with w-full ensures 16:9 ratio automatically.
-                        */}
-                        <iframe
-                            className="w-full h-full"
-                            src="https://www.youtube.com/embed/iQYZ-U3yQfo"
-                            title="GoRevive Refurbishment Process Video"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                        ></iframe>
+                        <LiteYouTube id="iQYZ-U3yQfo" title="GoRevive Refurbishment Process Video" />
                     </div>
                 </div>
 

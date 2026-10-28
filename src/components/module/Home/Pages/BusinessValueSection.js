@@ -62,7 +62,7 @@ export const BusinessValueSection = () => {
                                     
                                     {/* Step Number & Icon Header */}
                                     <div className="flex justify-between items-start mb-6">
-                                        <span className="text-3xl font-black text-gray-200 group-hover:text-[#1B5E3B]/20 transition-colors duration-300">
+                                        <span className="text-3xl font-black text-gray-500 group-hover:text-[#1B5E3B] transition-colors duration-300">
                                             {item.step}
                                         </span>
                                         <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
@@ -109,7 +109,7 @@ export const BusinessValueSection = () => {
                     
                     <div className="text-center mb-16">
                         <div className="inline-flex items-center justify-center w-16 h-16 bg-[#F0FAF5] rounded-full mb-4">
-                            <img src="/images/e-waste-recycling-symbol.png" alt="E-waste recycling symbol" className="w-8 h-8 object-contain" />
+                            <img src="/images/e-waste-recycling-symbol-sm.webp" alt="E-waste recycling symbol" width={32} height={32} loading="lazy" decoding="async" className="w-8 h-8 object-contain" />
                         </div>
                         <h2 className="text-3xl md:text-5xl font-extrabold text-[#0B2136]">
                             Powering a Sustainable Future
@@ -130,7 +130,7 @@ export const BusinessValueSection = () => {
                                 <div>
                                     <div className="flex justify-between items-end mb-3">
                                         <span className="font-semibold text-gray-600">Manufacturing a New Laptop</span>
-                                        <span className="text-xl font-black text-gray-400">~400 kg CO₂e</span>
+                                        <span className="text-xl font-black text-gray-500">~400 kg CO₂e</span>
                                     </div>
                                     <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
                                         <div className="bg-gray-300 h-full rounded-full transition-all duration-1000" style={{ width: '100%' }}></div>

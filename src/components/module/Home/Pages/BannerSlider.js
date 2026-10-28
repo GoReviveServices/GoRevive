@@ -1,7 +1,42 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useDashboard } from '@/components/utils/Context/DashboardContext';
+
+// Banners are served through the Next.js image optimiser (responsive WebP/AVIF,
+// cached for minimumCacheTTL) instead of the 2000px originals from the PHP host,
+// which send no cache headers. If the optimiser rejects the URL (for example the
+// banner host is not in images.remotePatterns) it falls back to the plain <img>.
+const SlideImage = ({ src, alt, priority }) => {
+    const [failed, setFailed] = useState(false);
+    if (failed) {
+        return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+                src={src}
+                alt={alt}
+                width={1600}
+                height={640}
+                loading={priority ? 'eager' : 'lazy'}
+                fetchPriority={priority ? 'high' : 'low'}
+                decoding="async"
+                className="w-full h-full object-cover"
+            />
+        );
+    }
+    return (
+        <Image
+            src={src}
+            alt={alt}
+            fill
+            sizes="(min-width: 1280px) 1280px, 90vw"
+            priority={priority}
+            onError={() => setFailed(true)}
+            className="object-cover"
+        />
+    );
+};
 
 export const BannerSliderSkeleton = () => {
     return (
@@ -40,7 +75,7 @@ export const BannerSlider = ({ initialBanners = [] }) => {
     const banners = bannerData?.length ? bannerData : initialBanners;
 
     const navigators = [
-        "Offers", "Asset Disposition", "About Us", "Lifecycle Management", 
+        "Offers", "Asset Disposition", "About GoRevive", "Lifecycle Management", 
         "Categories", "Brands", "Featured Products", "Buyback Pipeline", 
         "Environmental Impact", "Process in Action"
     ];
@@ -132,16 +167,7 @@ export const BannerSlider = ({ initialBanners = [] }) => {
                             className={`absolute left-0 right-0 mx-auto w-[100%] h-full rounded-3xl overflow-hidden transition-all duration-700 ease-in-out shadow-2xl ${positionClasses}`}
                         >
                             {/* First slide is the LCP image: load it first; the rest wait. */}
-                            <img
-                                src={slide.image}
-                                alt={slide.alt}
-                                width={1600}
-                                height={640}
-                                loading={index === 0 ? 'eager' : 'lazy'}
-                                fetchPriority={index === 0 ? 'high' : 'low'}
-                                decoding="async"
-                                className="w-full h-full object-cover"
-                            />
+                            <SlideImage src={slide.image} alt={slide.alt} priority={index === 0} />
                             {/* <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div> */}
 
                         </div>
@@ -158,13 +184,18 @@ export const BannerSlider = ({ initialBanners = [] }) => {
                         <button
                             key={index}
                             onClick={() => setCurrentSlide(index)}
-                            className={`transition-all duration-300 rounded-full ${
-                                index === currentSlide 
-                                    ? 'w-8 h-2 bg-gray-800' 
-                                    : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
-                            }`}
+                            className="group h-6 min-w-6 flex items-center justify-center"
                             aria-label={`Go to slide ${index + 1}`}
-                        />
+                            aria-current={index === currentSlide ? "true" : undefined}
+                        >
+                            <span
+                                className={`block transition-all duration-300 rounded-full ${
+                                    index === currentSlide
+                                        ? 'w-8 h-2 bg-gray-800'
+                                        : 'w-2 h-2 bg-gray-300 group-hover:bg-gray-400'
+                                }`}
+                            />
+                        </button>
                     ))}
                 </div>
 
